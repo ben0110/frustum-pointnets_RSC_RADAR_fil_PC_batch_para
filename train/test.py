@@ -14,10 +14,13 @@ import importlib
 import numpy as np
 import tensorflow as tf
 import cPickle as pickle
+from shutil import copyfile
+import json
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
-sys.path.append(os.path.join(ROOT_DIR, 'models'))
+#sys.path.append(os.path.join(ROOT_DIR, 'models'))
+sys.path.append(os.path.join(ROOT_DIR, '/train/log_v2/15-02-2020-23:59:37/'))
 from model_util import NUM_HEADING_BIN, NUM_SIZE_CLUSTER
 import provider
 from train_util import get_batch
@@ -58,7 +61,7 @@ def get_session_and_ops(batch_size, num_point):
             pointclouds_pl, one_hot_vec_pl, labels_pl, centers_pl, \
             heading_class_label_pl, heading_residual_label_pl, \
             size_class_label_pl, size_residual_label_pl = \
-                MODEL.placeholder_inputs(batch_size, num_point)
+                MODEL.placeholder_inputs_test_raw(batch_size, num_point)
             is_training_pl = tf.placeholder(tf.bool, shape=())
             end_points = MODEL.get_model(pointclouds_pl, one_hot_vec_pl,
                 is_training_pl)
@@ -181,7 +184,40 @@ def write_detection_results(result_dir, id_list, type_list, box2d_list, center_l
         fout = open(pred_filename, 'w')
         for line in results[idx]:
             fout.write(line+'\n')
-        fout.close() 
+        fout.close()
+
+def write_detection_results_3dbat(result_dir, id_list,  center_list, \
+                            heading_cls_list, heading_res_list, \
+                            size_cls_list, size_res_list, \
+                            rot_angle_list, score_list):
+    orig_path = "/root/3D_BoundingBox_Annotation_Tool_3D_BAT/input/NuScenes/ONE/"
+    # copy files to 3d bbat
+    i=0
+    for idx in id_list:
+        #copy pcd file
+        copyfile("/root/frustum-pointnets_RSC/dataset/KITTI/object/training/velodyne/%06d.pcd" %idx ,orig_path+"/pointclouds/%06d.pcd" %i)
+        copyfile("/root/frustum-pointnets_RSC/dataset/KITTI/object/training/image_left/%06d.jpg" %idx ,orig_path+"/images/CAM_FRONT_LEFT/%06d.jpg" %i)
+        copyfile("/root/frustum-pointnets_RSC/dataset/KITTI/object/training/image_right/%06d.jpg" % idx,orig_path + "/images/CAM_FRONT/%06d.jpg" % i)
+        i=i+1
+        #copy image or create sym link zum image: watch out that you dont broke the links
+
+    # generate json annotation
+    annotation = []
+    for i in range(len(center_list)):
+        h,w,l,tx,ty,tz,ry = provider.from_prediction_to_label_format(center_list[i],
+            heading_cls_list[i], heading_res_list[i],
+            size_cls_list[i], size_res_list[i], rot_angle_list[i])
+        x= tz
+        z=-ty
+        y=-tx
+        th= h
+        tw= l
+        tl= w
+        annotation.append([{"class":"Pedestrian","width":tw,"length":tl,"height":th,"x":x,"y":y,"z":z,"rotationY":ry,"trackId":1,"frameIdx":i}])
+
+    with open(orig_path+ "/annotations/NuScenes_ONE_annotations.txt", 'w') as outfile:
+        json.dump(annotation, outfile)
+
 
 def fill_files(output_dir, to_fill_filename_list):
     ''' Create empty files if not exist for the filelist. '''

@@ -16,7 +16,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'models'))
-import provider
+import provider_dfd as provider
 from train_util import get_batch
 
 parser = argparse.ArgumentParser()
@@ -46,13 +46,18 @@ MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
-NUM_CHANNEL = 3 if FLAGS.no_intensity else 4 # point feature channel
+NUM_CHANNEL = 3 if FLAGS.no_intensity else 6 # point feature channel
 NUM_CLASSES = 2 # segmentation has two classes
 
 MODEL = importlib.import_module(FLAGS.model) # import network module
 MODEL_FILE = os.path.join(ROOT_DIR, 'models', FLAGS.model+'.py')
 LOG_DIR = FLAGS.log_dir
-if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
+datum = datetime.now()
+datum = datum.strftime("%d-%m-%Y-%H:%M:%S")
+LOG_DIR=os.path.join(LOG_DIR,datum)
+if not os.path.exists(LOG_DIR):
+    os.mkdir(LOG_DIR)
+    os.mkdir(LOG_DIR+"/ckpt")
 os.system('cp %s %s' % (MODEL_FILE, LOG_DIR)) # bkp of model def
 os.system('cp %s %s' % (os.path.join(BASE_DIR, 'train.py'), LOG_DIR))
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
@@ -65,9 +70,9 @@ BN_DECAY_CLIP = 0.99
 
 # Load Frustum Datasets. Use default data paths.
 TRAIN_DATASET = provider.FrustumDataset(npoints=NUM_POINT, split='train',
-    rotate_to_center=True, random_flip=True, random_shift=True, one_hot=True)
+    rotate_to_center=False, random_flip=False, random_shift=False, one_hot=True)
 TEST_DATASET = provider.FrustumDataset(npoints=NUM_POINT, split='val',
-    rotate_to_center=True, one_hot=True)
+    rotate_to_center=False, one_hot=True)
 
 def log_string(out_str):
     LOG_FOUT.write(out_str+'\n')
@@ -203,7 +208,7 @@ def train():
 
             # Save the variables to disk.
             if epoch % 10 == 0:
-                save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"))
+                save_path = saver.save(sess, os.path.join(LOG_DIR,"ckpt" ,"model_"+str(epoch)+".ckpt"))
                 log_string("Model saved in file: %s" % save_path)
 
 def train_one_epoch(sess, ops, train_writer):
@@ -246,7 +251,7 @@ def train_one_epoch(sess, ops, train_writer):
                      ops['heading_residual_label_pl']: batch_hres,
                      ops['size_class_label_pl']: batch_sclass,
                      ops['size_residual_label_pl']: batch_sres,
-                     ops['is_training_pl']: is_training,}
+                     ops['is_training_pl']: is_training}
 
         summary, step, _, loss_val, logits_val, centers_pred_val, \
         iou2ds, iou3ds = \
@@ -264,7 +269,14 @@ def train_one_epoch(sess, ops, train_writer):
         loss_sum += loss_val
         iou2ds_sum += np.sum(iou2ds)
         iou3ds_sum += np.sum(iou3ds)
-        iou3d_correct_cnt += np.sum(iou3ds>=0.7)
+        #print("iou2ds",iou2ds)
+        #print("iou3ds",iou3ds)
+        #print("iou2ds_sum",iou2ds_sum)
+        #print("iou3ds_sum",iou3ds_sum)
+        #print("centers_pred_val",centers_pred_val)
+        #print("box center",batch_center)
+        #print("logits_val",logits_val)
+        iou3d_correct_cnt += np.sum(iou3ds>=0.5)
 
         if (batch_idx+1)%10 == 0:
             log_string(' -- %03d / %03d --' % (batch_idx+1, num_batches))
@@ -273,7 +285,7 @@ def train_one_epoch(sess, ops, train_writer):
                 (total_correct / float(total_seen)))
             log_string('box IoU (ground/3D): %f / %f' % \
                 (iou2ds_sum / float(BATCH_SIZE*10), iou3ds_sum / float(BATCH_SIZE*10)))
-            log_string('box estimation accuracy (IoU=0.7): %f' % \
+            log_string('box estimation accuracy (IoU=0.5): %f' % \
                 (float(iou3d_correct_cnt)/float(BATCH_SIZE*10)))
             total_correct = 0
             total_seen = 0
@@ -312,7 +324,7 @@ def eval_one_epoch(sess, ops, test_writer):
         batch_data, batch_label, batch_center, \
         batch_hclass, batch_hres, \
         batch_sclass, batch_sres, \
-        batch_rot_angle, batch_one_hot_vec = \
+        batch_rot_angle, batch_one_hot_vec= \
             get_batch(TEST_DATASET, test_idxs, start_idx, end_idx,
                 NUM_POINT, NUM_CHANNEL)
 
@@ -343,7 +355,7 @@ def eval_one_epoch(sess, ops, test_writer):
             total_correct_class[l] += (np.sum((preds_val==l) & (batch_label==l)))
         iou2ds_sum += np.sum(iou2ds)
         iou3ds_sum += np.sum(iou3ds)
-        iou3d_correct_cnt += np.sum(iou3ds>=0.7)
+        iou3d_correct_cnt += np.sum(iou3ds>=0.5)
 
         for i in range(BATCH_SIZE):
             segp = preds_val[i,:]
@@ -365,7 +377,7 @@ def eval_one_epoch(sess, ops, test_writer):
     log_string('eval box IoU (ground/3D): %f / %f' % \
         (iou2ds_sum / float(num_batches*BATCH_SIZE), iou3ds_sum / \
             float(num_batches*BATCH_SIZE)))
-    log_string('eval box estimation accuracy (IoU=0.7): %f' % \
+    log_string('eval box estimation accuracy (IoU=0.5): %f' % \
         (float(iou3d_correct_cnt)/float(num_batches*BATCH_SIZE)))
          
     EPOCH_CNT += 1

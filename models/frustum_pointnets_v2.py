@@ -14,7 +14,7 @@ import tf_util
 from pointnet_util import pointnet_sa_module, pointnet_sa_module_msg, pointnet_fp_module
 from model_util import NUM_HEADING_BIN, NUM_SIZE_CLUSTER, NUM_OBJECT_POINT
 from model_util import point_cloud_masking, get_center_regression_net
-from model_util import placeholder_inputs, parse_output_to_tensors, get_loss
+from model_util import placeholder_inputs_batch, parse_output_to_tensors, get_loss_batch,get_loss
 
 
 def get_instance_seg_v2_net(point_cloud, one_hot_vec,
@@ -64,7 +64,7 @@ def get_instance_seg_v2_net(point_cloud, one_hot_vec,
     # FC layers
     net = tf_util.conv1d(l0_points, 128, 1, padding='VALID', bn=True,
         is_training=is_training, scope='conv1d-fc1', bn_decay=bn_decay)
-    end_points['feats'] = net 
+    end_points['feats'] = net
     net = tf_util.dropout(net, keep_prob=0.7,
         is_training=is_training, scope='dp1')
     logits = tf_util.conv1d(net, 2, 1,
@@ -84,8 +84,9 @@ def get_3d_box_estimation_v2_net(object_point_cloud, one_hot_vec,
         output: TF tensor in shape (B,3+NUM_HEADING_BIN*2+NUM_SIZE_CLUSTER*4)
             including box centers, heading bin class scores and residuals,
             and size cluster scores and residuals
-    ''' 
+    '''
     # Gather object points
+    print("one_hot_vec: ", one_hot_vec)
     batch_size = object_point_cloud.get_shape()[0].value
 
     l0_xyz = object_point_cloud
@@ -136,7 +137,7 @@ def get_model(point_cloud, one_hot_vec, is_training, bn_decay=None):
         end_points: dict (map from name strings to TF tensors)
     '''
     end_points = {}
-    
+
     # 3D Instance Segmentation PointNet
     logits, end_points = get_instance_seg_v2_net(\
         point_cloud, one_hot_vec,
@@ -147,11 +148,13 @@ def get_model(point_cloud, one_hot_vec, is_training, bn_decay=None):
     # select masked points and translate to masked points' centroid
     object_point_cloud_xyz, mask_xyz_mean, end_points = \
         point_cloud_masking(point_cloud, logits, end_points)
-
+    end_points['object_point_cloud_xyz']= object_point_cloud_xyz
+    end_points['mask_xyz_mean']=mask_xyz_mean
     # T-Net and coordinate translation
     center_delta, end_points = get_center_regression_net(\
         object_point_cloud_xyz, one_hot_vec,
         is_training, bn_decay, end_points)
+    end_points['center_delta']= center_delta
     stage1_center = center_delta + mask_xyz_mean # Bx3
     end_points['stage1_center'] = stage1_center
     # Get object point cloud in object coordinate
@@ -175,8 +178,8 @@ if __name__=='__main__':
         outputs = get_model(inputs, tf.ones((32,3)), tf.constant(True))
         for key in outputs:
             print((key, outputs[key]))
-        loss = get_loss(tf.zeros((32,1024),dtype=tf.int32),
-            tf.zeros((32,3)), tf.zeros((32,),dtype=tf.int32),
-            tf.zeros((32,)), tf.zeros((32,),dtype=tf.int32),
-            tf.zeros((32,3)), outputs)
+        loss = get_loss(tf.ones((32,1024),dtype=tf.int32),
+            tf.ones((32,3)), tf.ones((32,),dtype=tf.int32),
+            tf.ones((32,)), tf.ones((32,),dtype=tf.int32),
+            tf.ones((32,3)), outputs)
         print(loss)

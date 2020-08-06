@@ -136,16 +136,25 @@ class FrustumDataset(object):
                 self.prob_list = pickle.load(fp)
         else:
             with open(overwritten_data_path,'rb') as fp:
+
                 self.id_list = pickle.load(fp)
+                #box2d in corners format
                 self.box2d_list = pickle.load(fp)
+                # box3d in corners format
                 self.box3d_list = pickle.load(fp)
+                # point cloud, hole or frustum filtered? looks like frustrum filtered because number of pc is too small
                 self.input_list = pickle.load(fp)
+
                 self.label_list = pickle.load(fp)
                 self.type_list = pickle.load(fp)
                 self.heading_list = pickle.load(fp)
                 self.size_list = pickle.load(fp)
                 # frustum_angle is clockwise angle from positive x-axis
-                self.frustum_angle_list = pickle.load(fp) 
+                self.frustum_angle_list = pickle.load(fp)
+                print(len(self.id_list),len(self.box2d_list),len(self.box3d_list),len(self.input_list),len(self.label_list),len(self.type_list))
+                #print(self.label_list)
+                for i in range(len(self.input_list)):
+                    print(len(self.box3d_list[i]))
 
     def __len__(self):
             return len(self.input_list)
