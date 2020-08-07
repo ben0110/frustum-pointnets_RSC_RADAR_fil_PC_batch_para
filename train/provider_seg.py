@@ -1344,7 +1344,7 @@ class RadarDataset_bbox_CLS(object):
         self.id_list = self.batch_list
         print("recall: ", np.mean(recall))
         time.sleep(10)
-        print(self.id_list)
+        print(np.unique(self.id_list))
 
 
         """for k in range(gt_boxes3d.shape[0]):
