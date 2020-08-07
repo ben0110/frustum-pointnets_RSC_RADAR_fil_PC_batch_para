@@ -13,7 +13,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import time
-
+import math
+import random
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
@@ -1056,6 +1057,24 @@ def NMS(pred_box_frame, IoU_frame, score_list_frame, gt_ids):
     return bboxes, score_list, iou_prov, indice, gt_list
 
 
+
+def expand_cordinates(corners,width_plus,length_plus):
+    min_point = np.amin(corners,axis=0)
+    max_point = np.amax(corners,axis=0)
+    center= (min_point + max_point)/2
+    argmax_z = np.argmax(corners[:,2])
+    argmin_x = np.argmin(corners[:,0])
+    argmax_x = np.argmax(corners[:,0])
+    width = np.sqrt(pow(corners[argmax_z,2]-corners[argmax_x,2],2)+ pow(corners[argmax_z,0]-corners[argmax_x,2],2))
+    length= np.sqrt(pow(corners[argmax_z,2]-corners[argmin_x,2],2)+ pow(corners[argmax_z,0]-corners[argmin_x,2],2))
+    height = abs(np.min(corners[:,1]) - np.max(corners[:,1]))
+    diffs = [corners[argmax_z,2]-corners[argmin_x,2] ,corners[argmax_z,0]-corners[argmax_x,2]]
+    rotation = math.atan(diffs[0]/diffs[1])
+    width = width + width_plus
+    length = length + length_plus
+    new_corners = get_3d_box([height,width,length],rotation,center)
+    return new_corners
+
 class RadarDataset_bbox_CLS(object):
     ''' Dataset class for Frustum PointNets training/evaluation.
     Load prepared KITTI data from pickled files, return individual data element
@@ -1189,23 +1208,37 @@ class RadarDataset_bbox_CLS(object):
 
                 if (split == "train"):
                     for n in range(len(score_list)):
+
                         if (gt_list[n] != 10):
                             pc = self.segp_list[i][:, 0:3]
-                            cls_label_gt = np.zeros(len(pc))
-                            fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
-                            cls_label_gt[fg_pt_flag] = 1
-                            indices = np.argwhere(cls_label_gt == 1)
-                            AB_pc = pc[indices.reshape(-1)]
-                            self.AB.append(AB_pc)
-                            self.type_list.append("Pedestrian")
-                            self.box3d_list.append(gt_corners[gt_list[n]])
-                            self.AB_list.append(bboxes[n])
-                            self.size_list.append(
-                                [gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4], gt_boxes3d[gt_list[n]][5]])
-                            self.heading_list.append(gt_boxes3d[gt_list[n]][6])
-                            print(self.ids[i])
-                            self.batch_list.append(self.ids[i])
-                            self.indice_box.append(n)
+
+                            ab_bbox =bboxes[n]
+
+                            #get_box3d_center(()
+                            for l in range(5):
+                                ab_bbox_= expand_cordinates(ab_bbox,random.random()/2,random.random()/2)
+                                cls_label_gt = np.zeros(len(pc))
+                                fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], ab_bbox_)
+                                fig = mlab.figure(figure=None, bgcolor=(0.4, 0.4, 0.4), fgcolor=None, engine=None,
+                                                  size=(1000, 500))
+                                draw_gt_boxes3d([ab_bbox], fig, color=(1, 0, 0))
+                                draw_gt_boxes3d([ab_bbox_], fig, color=(1, 0, 0))
+                                # print(data[7])
+                                mlab.orientation_axes()
+                                raw_input()
+                                cls_label_gt[fg_pt_flag] = 1
+                                indices = np.argwhere(cls_label_gt == 1)
+                                AB_pc = pc[indices.reshape(-1)]
+                                self.AB.append(AB_pc)
+                                self.type_list.append("Pedestrian")
+                                self.box3d_list.append(gt_corners[gt_list[n]])
+                                self.AB_list.append(bboxes[n])
+                                self.size_list.append(
+                                    [gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4], gt_boxes3d[gt_list[n]][5]])
+                                self.heading_list.append(gt_boxes3d[gt_list[n]][6])
+                                print(self.ids[i])
+                                self.batch_list.append(self.ids[i])
+                                self.indice_box.append(n)
 
                 elif(split == "val" or split == "test"):
                     """if np.count_nonzero(np.argmax(NMS_cls_frame, 1) == 1) > 1:
