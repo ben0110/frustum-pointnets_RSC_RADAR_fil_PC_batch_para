@@ -1553,7 +1553,6 @@ class RadarDataset_bbox_CLS(object):
 
     def get_box3d_center(self, index):
         ''' Get the center (XYZ) of 3D bounding box. '''
-        print(self.box3d_list[index])
         box3d_center = (self.box3d_list[index][0, :] + \
                         self.box3d_list[index][6, :]) / 2.0
         return box3d_center
