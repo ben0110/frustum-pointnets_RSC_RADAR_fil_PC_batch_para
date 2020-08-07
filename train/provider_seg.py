@@ -1208,7 +1208,7 @@ class RadarDataset_bbox_CLS(object):
                             self.indice_box.append(n)
 
                 elif(split == "val" or split == "test"):
-                    if np.count_nonzero(np.argmax(NMS_cls_frame, 1) == 1) > 1:
+                    """if np.count_nonzero(np.argmax(NMS_cls_frame, 1) == 1) > 1:
                         pos_indices = np.argwhere(np.argmax(NMS_cls_frame, 1) == 1)
                         #print(pos_indices.reshape(-1))
                         pos_indices = pos_indices.reshape(-1)
@@ -1256,92 +1256,92 @@ class RadarDataset_bbox_CLS(object):
                                 self.batch_list.append(self.ids[i])
                                 self.indice_box.append(n)
 
+                    else:"""
+                    if len(NMS_cls_frame) < 5:
+                        for n in range(len(gt_list)):
+                            if gt_list[n] != 10:
+                                pc = self.segp_list[i][:, 0:3]
+                                cls_label_gt = np.zeros(len(pc))
+                                fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
+                                cls_label_gt[fg_pt_flag] = 1
+                                indices = np.argwhere(cls_label_gt == 1)
+                                AB_pc = pc[indices.reshape(-1)]
+
+                                self.AB.append(AB_pc)
+                                self.type_list.append("Pedestrian")
+                                self.box3d_list.append(gt_corners[gt_list[n]])
+                                self.AB_list.append(bboxes[n])
+                                self.size_list.append([gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4],
+                                                       gt_boxes3d[gt_list[n]][5]])
+                                self.heading_list.append(gt_boxes3d[gt_list[n]][6])
+                                self.batch_list.append(self.ids[i])
+                                self.indice_box.append(n)
+
+                            else:
+                                pc = self.segp_list[i][:, 0:3]
+                                cls_label_gt = np.zeros(len(pc))
+                                fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
+                                cls_label_gt[fg_pt_flag] = 1
+                                indices = np.argwhere(cls_label_gt == 1)
+                                AB_pc = pc[indices.reshape(-1)]
+                                box3d_center = np.random.rand(3) * (-10.0)
+                                size = np.ones((3))
+                                box3d = np.array(
+                                    [[box3d_center[0], box3d_center[1], box3d_center[2], size[0], size[1],
+                                      size[2], 0.0]])
+                                corners_empty = kitti_utils.boxes3d_to_corners3d(box3d, transform=False)
+                                self.AB.append(AB_pc)
+                                self.type_list.append("Pedestrian")
+                                self.box3d_list.append(corners_empty[0])
+                                self.AB_list.append(bboxes[n])
+
+                                self.size_list.append(size)
+                                self.heading_list.append(0.0)
+                                self.batch_list.append(self.ids[i])
+                                self.indice_box.append(n)
+
                     else:
-                        if len(NMS_cls_frame) < 5:
-                            for n in range(len(gt_list)):
-                                if gt_list[n] != 10:
-                                    pc = self.segp_list[i][:, 0:3]
-                                    cls_label_gt = np.zeros(len(pc))
-                                    fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
-                                    cls_label_gt[fg_pt_flag] = 1
-                                    indices = np.argwhere(cls_label_gt == 1)
-                                    AB_pc = pc[indices.reshape(-1)]
+                        for n in range(len(gt_list)-1, len(gt_list) - 5, -1):
+                            if (gt_list[n] != 10):
+                                pc = self.segp_list[i][:, 0:3]
+                                cls_label_gt = np.zeros(len(pc))
+                                fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
+                                cls_label_gt[fg_pt_flag] = 1
+                                indices = np.argwhere(cls_label_gt == 1)
 
-                                    self.AB.append(AB_pc)
-                                    self.type_list.append("Pedestrian")
-                                    self.box3d_list.append(gt_corners[gt_list[n]])
-                                    self.AB_list.append(bboxes[n])
-                                    self.size_list.append([gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4],
-                                                           gt_boxes3d[gt_list[n]][5]])
-                                    self.heading_list.append(gt_boxes3d[gt_list[n]][6])
-                                    self.batch_list.append(self.ids[i])
-                                    self.indice_box.append(n)
+                                AB_pc = pc[indices.reshape(-1)]
+                                self.AB.append(AB_pc)
+                                self.type_list.append("Pedestrian")
+                                self.box3d_list.append(gt_corners[gt_list[n]])
+                                self.AB_list.append(bboxes[n])
+                                self.size_list.append([gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4],
+                                                       gt_boxes3d[gt_list[n]][5]])
+                                self.heading_list.append(gt_boxes3d[gt_list[n]][6])
+                                self.batch_list.append(self.ids[i])
+                                self.indice_box.append(n)
 
-                                else:
-                                    pc = self.segp_list[i][:, 0:3]
-                                    cls_label_gt = np.zeros(len(pc))
-                                    fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
-                                    cls_label_gt[fg_pt_flag] = 1
-                                    indices = np.argwhere(cls_label_gt == 1)
-                                    AB_pc = pc[indices.reshape(-1)]
-                                    box3d_center = np.random.rand(3) * (-10.0)
-                                    size = np.ones((3))
-                                    box3d = np.array(
-                                        [[box3d_center[0], box3d_center[1], box3d_center[2], size[0], size[1],
-                                          size[2], 0.0]])
-                                    corners_empty = kitti_utils.boxes3d_to_corners3d(box3d, transform=False)
-                                    self.AB.append(AB_pc)
-                                    self.type_list.append("Pedestrian")
-                                    self.box3d_list.append(corners_empty[0])
-                                    self.AB_list.append(bboxes[n])
+                            else:
+                                pc = self.segp_list[i][:, 0:3]
+                                cls_label_gt = np.zeros(len(pc))
+                                fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
+                                cls_label_gt[fg_pt_flag] = 1
+                                indices = np.argwhere(cls_label_gt == 1)
+                                AB_pc = pc[indices.reshape(-1)]
+                                box3d_center = np.random.rand(3) * (-10.0)
+                                size = np.ones((3))
+                                box3d = np.array(
+                                    [[box3d_center[0], box3d_center[1], box3d_center[2], size[0], size[1],
+                                      size[2], 0.0]])
+                                corners_empty = kitti_utils.boxes3d_to_corners3d(box3d, transform=False)
+                                self.AB.append(AB_pc)
+                                self.type_list.append("Pedestrian")
+                                self.box3d_list.append(corners_empty[0])
+                                self.AB_list.append(bboxes[n])
 
-                                    self.size_list.append(size)
-                                    self.heading_list.append(0.0)
-                                    self.batch_list.append(self.ids[i])
-                                    self.indice_box.append(n)
-
-                        else:
-                            for n in range(len(gt_list)-1, len(gt_list) - 5, -1):
-                                if (gt_list[n] != 10):
-                                    pc = self.segp_list[i][:, 0:3]
-                                    cls_label_gt = np.zeros(len(pc))
-                                    fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
-                                    cls_label_gt[fg_pt_flag] = 1
-                                    indices = np.argwhere(cls_label_gt == 1)
-
-                                    AB_pc = pc[indices.reshape(-1)]
-                                    self.AB.append(AB_pc)
-                                    self.type_list.append("Pedestrian")
-                                    self.box3d_list.append(gt_corners[gt_list[n]])
-                                    self.AB_list.append(bboxes[n])
-                                    self.size_list.append([gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4],
-                                                           gt_boxes3d[gt_list[n]][5]])
-                                    self.heading_list.append(gt_boxes3d[gt_list[n]][6])
-                                    self.batch_list.append(self.ids[i])
-                                    self.indice_box.append(n)
-
-                                else:
-                                    pc = self.segp_list[i][:, 0:3]
-                                    cls_label_gt = np.zeros(len(pc))
-                                    fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
-                                    cls_label_gt[fg_pt_flag] = 1
-                                    indices = np.argwhere(cls_label_gt == 1)
-                                    AB_pc = pc[indices.reshape(-1)]
-                                    box3d_center = np.random.rand(3) * (-10.0)
-                                    size = np.ones((3))
-                                    box3d = np.array(
-                                        [[box3d_center[0], box3d_center[1], box3d_center[2], size[0], size[1],
-                                          size[2], 0.0]])
-                                    corners_empty = kitti_utils.boxes3d_to_corners3d(box3d, transform=False)
-                                    self.AB.append(AB_pc)
-                                    self.type_list.append("Pedestrian")
-                                    self.box3d_list.append(corners_empty[0])
-                                    self.AB_list.append(bboxes[n])
-
-                                    self.size_list.append(size)
-                                    self.heading_list.append(0.0)
-                                    self.batch_list.append(self.ids[i])
-                                    self.indice_box.append(n)
+                                self.size_list.append(size)
+                                self.heading_list.append(0.0)
+                                self.batch_list.append(self.ids[i])
+                                self.indice_box.append(n)
 
         self.id_list = self.batch_list
         print("recall: ", np.mean(recall))
