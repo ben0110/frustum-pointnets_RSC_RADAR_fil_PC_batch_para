@@ -1136,7 +1136,7 @@ class RadarDataset_bbox_CLS(object):
         len_PC = []
         for i in range(len(self.segp_list)):
             len_PC.append(len(self.segp_list[i]))
-        print(np.unique(np.asarray(self.ids)))
+        print(split,np.unique(np.asarray(self.ids)))
         batch_list = []
         for i in range(len(self.segp_list)):
             ab_arg_frame = []
@@ -1203,6 +1203,7 @@ class RadarDataset_bbox_CLS(object):
                             self.size_list.append(
                                 [gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4], gt_boxes3d[gt_list[n]][5]])
                             self.heading_list.append(gt_boxes3d[gt_list[n]][6])
+                            print(self.ids[i])
                             self.batch_list.append(self.ids[i])
                             self.indice_box.append(n)
 
