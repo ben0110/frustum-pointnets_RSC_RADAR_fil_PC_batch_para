@@ -1032,7 +1032,7 @@ def NMS(pred_box_frame, IoU_frame, score_list_frame, gt_ids):
 
     ind_sort = np.argsort([x for x in score_list_frame])
 
-    print("ind_sort", ind_sort)
+    #print("ind_sort", ind_sort)
     for i in range(len(pred_box_frame)):
         bbox = pred_box_frame[ind_sort[i]]
         flag = 1
@@ -1153,7 +1153,7 @@ class RadarDataset_bbox_CLS(object):
                 # pc_radar = self.dataset_kitti.get_radar(self.ids[i])
                 pc_seg = self.segp_list[i]
 
-                print("number of point clouds: ", len(pc_seg))
+                #print("number of point clouds: ", len(pc_seg))
                 gt_obj_list = self.dataset_kitti.filtrate_objects(
                     self.dataset_kitti.get_label(self.ids[i]))
                 gt_boxes3d = kitti_utils.objs_to_boxes3d(gt_obj_list)
@@ -1180,7 +1180,7 @@ class RadarDataset_bbox_CLS(object):
                             iou_max = iou3d
                     iou.append(iou_max)
                     if iou_max>0.35:
-                        recall.apppend(1)
+                        recall.append(1)
                     else:
                         recall.append(0)
                 bboxes, score_list, iou_prov, indices, gt_list = NMS(ab_frame, iou, cls_frame[:, 1], gt_ids)
