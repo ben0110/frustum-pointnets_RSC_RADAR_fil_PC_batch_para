@@ -544,12 +544,12 @@ class RadarDataset_seg_cls(object):
             box_number = 'one_boxes'
         if overwritten_data_path is None:
             overwritten_data_path = os.path.join('/root/frustum-pointnets_RSC_RADAR_fil_PC_batch/',
-                                                 'dataset/RSC/radar_' + box_number + ('_%s.pickle' % (split)))
+                                                 'dataset/RSC/radar_' + box_number + ('_%s_seg_cls.pickle' % (split)))
         output_filename = overwritten_data_path
         self.from_rgb_detection = from_rgb_detection
 
         # list = os.listdir("/root/3D_BoundingBox_Annotation_Tool_3D_BAT/input/NuScenes/ONE/pointclouds_Radar")
-        self.id_list = self.dataset_kitti.sample_id_list[100:122]
+        self.id_list = self.dataset_kitti.sample_id_list
         self.idx_batch = self.id_list
         batch_list = []
         self.radar_OI = []
@@ -1104,7 +1104,7 @@ class RadarDataset_bbox_CLS(object):
         self.indice_box = []
 
         with open(
-                "/root/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/dataset/RSC/seg_rois_" + split + "_1.pickle",
+                "/root/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/dataset/RSC/seg_rois_" + split + "_seg_cls.pickle",
                 'rb') as fp:
             #u = pickle._Unpickler(fp)
             #u.encoding = 'latin1'
