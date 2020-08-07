@@ -1136,6 +1136,7 @@ class RadarDataset_bbox_CLS(object):
         len_PC = []
         for i in range(len(self.segp_list)):
             len_PC.append(len(self.segp_list[i]))
+        print(np.unique(np.asarray(self.ids)))
         batch_list = []
         for i in range(len(self.segp_list)):
             ab_arg_frame = []
