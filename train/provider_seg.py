@@ -450,11 +450,11 @@ class RadarDataset_seg(object):
                     self.RoI_parameters.append(RoI_boxes_3d)
                     self.GT_boxes.append(gt_corners)
             self.id_list = batch_list
-            print("id_list", len(self.id_list))
-            print("self.input_list", len(self.input_list))
-            print("mean accuracy:", np.mean(accuracy_list))
-            print("gt ratio 50:", np.mean(frame_true_50))
-            print("gt ratio 70:", np.mean(frame_true_70))
+            #print("id_list", len(self.id_list))
+            #print("self.input_list", len(self.input_list))
+            #print("mean accuracy:", np.mean(accuracy_list))
+            #print("gt ratio 50:", np.mean(frame_true_50))
+            #print("gt ratio 70:", np.mean(frame_true_70))
             # print("average nbr point cloud", np.sum(self.input_list[:,0])/len(self.id_list))
 
     def __len__(self):
@@ -549,7 +549,7 @@ class RadarDataset_seg_cls(object):
         self.from_rgb_detection = from_rgb_detection
 
         # list = os.listdir("/root/3D_BoundingBox_Annotation_Tool_3D_BAT/input/NuScenes/ONE/pointclouds_Radar")
-        self.id_list = self.dataset_kitti.sample_id_list
+        self.id_list = self.dataset_kitti.sample_id_list[100:116]
         self.idx_batch = self.id_list
         batch_list = []
         self.radar_OI = []
@@ -632,6 +632,7 @@ class RadarDataset_seg_cls(object):
 
             self.id_list = batch_list
             print("id_list", len(self.id_list))
+            print("self.id_list",self.id_list)
             print("self.input_list", len(self.input_list))
             print("mean accuracy:", np.mean(accuracy_list))
             print("gt ratio 50:", np.mean(frame_true_50))
@@ -666,7 +667,6 @@ class RadarDataset_seg_cls(object):
         # RoI_para = np.zeros((16,7))
 
         radar_masks_ = np.asarray(self.radar_masks[index])
-        print("radar_masks_", radar_masks_.shape)
         radar_mask_frame = np.zeros((len(radar_masks_), self.npoints))
         RoI_para = np.asarray(self.RoI_parameters[index])
         for i in range(len(radar_masks_)):

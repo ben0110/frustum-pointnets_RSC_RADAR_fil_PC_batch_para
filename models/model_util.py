@@ -80,8 +80,8 @@ def tf_gather_object_pc(point_cloud, mask, npoints=512):
         return indices
 
     indices = tf.py_func(mask_to_indices, [mask], tf.int32)
-    print("indices", indices)
-    print("indices", indices.shape)
+    #print("indices", indices)
+    #print("indices", indices.shape)
     object_pc = tf.gather_nd(point_cloud, indices)
     return object_pc, indices
 
@@ -105,10 +105,10 @@ def tf_gather_object_pc_feats(point_cloud_, pc_features_, mask_, radar_set_, rad
         object_feats_list = np.zeros((mask.shape[0] * n_radar_set, npoints_radar_mask, 128), dtype=np.float32)
         idx_list = np.zeros((mask.shape[0] * n_radar_set, 1), dtype=np.int32)
         # indices[420,] =0
-        print('indices', indices.shape)
-        print('object_pc_list', object_pc_list.shape)
-        print('object_feats_list', object_feats_list.shape)
-        print('idx_list', idx_list.shape)
+        #print('indices', indices.shape)
+        #print('object_pc_list', object_pc_list.shape)
+        #print('object_feats_list', object_feats_list.shape)
+        #print('idx_list', idx_list.shape)
         for i in range(mask.shape[0]):
             for j in range(radar_set.shape[1]):
                 pos_indices = np.where(mask[i, :] > 0.5)[0]
@@ -145,8 +145,8 @@ def tf_gather_object_pc_feats(point_cloud_, pc_features_, mask_, radar_set_, rad
                                                                                         idx_],
                                                                                        [tf.float32, tf.float32,
                                                                                         tf.int32, tf.int32, tf.float32])
-    print("object_pc_list", object_pc_list)
-    print("object_feats_list", object_feats_list)
+    #print("object_pc_list", object_pc_list)
+    #print("object_feats_list", object_feats_list)
     # object_pc_list=[]
     # object_feats_list=[]
     # for i in range(indices.shape[0]):
@@ -323,8 +323,8 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
                         object_feats_list.append(pc_f[pos_indices])
                         radar_rois_list.append(radar_rois[i, j])
                         idx_list.append(idx[i])
-        print('object_pc_list', len(object_pc_list))
-        print('object_feats_list', len(object_feats_list))
+        #print('object_pc_list', len(object_pc_list))
+        #print('object_feats_list', len(object_feats_list))
 
         return object_pc_list, object_feats_list, idx_list, radar_rois_list, indices
 

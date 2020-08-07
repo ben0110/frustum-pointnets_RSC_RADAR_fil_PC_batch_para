@@ -62,11 +62,11 @@ def get_instance_seg_v2_net(point_cloud, one_hot_vec,
         [128,128], is_training, bn_decay, scope='fa_layer3')
     end_points['feats'] = l0_points
     # FC layers
-    print("l0_points",l0_points.shape)
-    print("l0_points",l0_points)
+    #print("l0_points",l0_points.shape)
+    #print("l0_points",l0_points)
     net = tf_util.conv1d(l0_points, 128, 1, padding='VALID', bn=True,
         is_training=is_training, scope='conv1d-fc1', bn_decay=bn_decay)
-    print("l0_points",l0_points.shape)
+    #print("l0_points",l0_points.shape)
     net = tf_util.dropout(net, keep_prob=0.7,
         is_training=is_training, scope='dp1')
     logits = tf_util.conv1d(net, 2, 1,
