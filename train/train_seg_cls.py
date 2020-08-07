@@ -586,7 +586,7 @@ def test_one_epoch(sess, ops, test_writer):
                     part_ious[l] = np.sum((segl == l) & (segp == l)) / \
                                    float(np.sum((segl == l) | (segp == l)))
 
-        ab_cls = np.where(Ab_cls>=0.5,1.0,0.0)
+        ab_cls = np.argmax(Ab_cls, 1)
         ab_correct = np.sum(ab_cls==score)
         total_ab_correct += ab_correct
         total_ab_seen += len(ab_cls)
