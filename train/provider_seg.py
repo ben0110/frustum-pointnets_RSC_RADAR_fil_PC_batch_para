@@ -1268,7 +1268,6 @@ class RadarDataset_bbox_CLS(object):
                                     self.AB.append(AB_pc)
                                     self.type_list.append("Pedestrian")
                                     self.box3d_list.append(gt_corners[gt_list[n]])
-                                    print(gt_corners[gt_list[n]])
                                     self.AB_list.append(bboxes[n])
                                     self.size_list.append([gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4],
                                                            gt_boxes3d[gt_list[n]][5]])
