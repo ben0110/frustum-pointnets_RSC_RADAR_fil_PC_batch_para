@@ -12,6 +12,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -1119,7 +1120,7 @@ class RadarDataset_bbox_CLS(object):
             #ab_cls_list = u.load()
             #self.ab_ids_list = u.load()
             #print(self.ids)
-
+        recall=[]
         self.dataset_kitti = KittiDataset('pc_radar_2', dataset=database,
                                           root_dir='/root/frustum-pointnets_RSC/dataset/',
                                           mode='TRAIN',
@@ -1171,12 +1172,19 @@ class RadarDataset_bbox_CLS(object):
                         gt_ids.append(10)
                     else:
                         gt_ids.append(gt_id)
-                print("+++id+++", self.ids[i])
+                for m in range(len(gt_corners)):
+                    iou_max = 0
+                    for k in range(len(cls_frame)):
+                        iou3d, iou2d = box3d_iou(ab_frame[k], gt_corners[m])
+                        if iou3d > iou_max:
+                            iou_max = iou3d
+                    iou.append(iou_max)
+                    if iou_max>0.35:
+                        recall.apppend(1)
+                    else:
+                        recall.append(0)
                 bboxes, score_list, iou_prov, indices, gt_list = NMS(ab_frame, iou, cls_frame[:, 1], gt_ids)
-                print("NMS LEN",len(bboxes),len(score_list),len(iou_prov),len(indices),len(gt_list))
                 NMS_cls_frame = cls_frame[indices]
-                for k in range(len(bboxes)):
-                    print("NMS", score_list[k], iou_prov[k], np.argmax(cls_frame[k]))
 
                 if (split == "train"):
                     for n in range(len(score_list)):
@@ -1200,12 +1208,8 @@ class RadarDataset_bbox_CLS(object):
                 elif(split == "val" or split == "test"):
                     if np.count_nonzero(np.argmax(NMS_cls_frame, 1) == 1) > 1:
                         pos_indices = np.argwhere(np.argmax(NMS_cls_frame, 1) == 1)
-                        print("pos_indices",pos_indices)
                         #print(pos_indices.reshape(-1))
                         pos_indices = pos_indices.reshape(-1)
-                        print(pos_indices)
-                        print(bboxes)
-                        print(gt_list)
                         bboxes=np.asarray(bboxes)
                         gt_list= np.asarray(gt_list)
                         bboxes = bboxes[pos_indices]
@@ -1339,7 +1343,10 @@ class RadarDataset_bbox_CLS(object):
                                     self.indice_box.append(n)
 
         self.id_list = self.batch_list
+        print("recall: ", np.mean(recall))
+        time.sleep(10)
         print(self.id_list)
+
 
         """for k in range(gt_boxes3d.shape[0]):
                 box_corners = gt_corners[k]
