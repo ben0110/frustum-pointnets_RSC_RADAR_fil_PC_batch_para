@@ -411,7 +411,7 @@ def eval_one_epoch(sess, ops, test_writer):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         batch_data, batch_label, gt_corners_batch, batch_one_hot_vec, batch_radar_mask_list, radar_rois_param, id_list = \
-            get_batch_seg_cls(TRAIN_DATASET, test_idxs, start_idx, end_idx,
+            get_batch_seg_cls(TEST_DATASET, test_idxs, start_idx, end_idx,
                               NUM_POINT, NUM_CHANNEL)
 
         feed_dict = {ops['pointclouds_pl']: batch_data,
@@ -540,7 +540,7 @@ def test_one_epoch(sess, ops, test_writer):
         end_idx = (batch_idx + 1) * BATCH_SIZE
 
         batch_data, batch_label, gt_corners_batch, batch_one_hot_vec, batch_radar_mask_list, radar_rois_param, id_list = \
-            get_batch_seg_cls(TRAIN_DATASET, test_idxs, start_idx, end_idx,
+            get_batch_seg_cls(TEST_1_DATASET, test_idxs, start_idx, end_idx,
                               NUM_POINT, NUM_CHANNEL)
 
         feed_dict = {ops['pointclouds_pl']: batch_data,
