@@ -550,7 +550,7 @@ class RadarDataset_seg_cls(object):
         self.from_rgb_detection = from_rgb_detection
 
         # list = os.listdir("/root/3D_BoundingBox_Annotation_Tool_3D_BAT/input/NuScenes/ONE/pointclouds_Radar")
-        self.id_list = self.dataset_kitti.sample_id_list
+        self.id_list = self.dataset_kitti.sample_id_list[:8]
         self.idx_batch = self.id_list
         batch_list = []
         self.radar_OI = []

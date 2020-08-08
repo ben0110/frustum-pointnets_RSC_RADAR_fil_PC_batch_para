@@ -217,7 +217,7 @@ def train():
 
 
 def save_data(src, segp_list, ids,ab_corners_list,ab_cls_list,ab_ids_list):
-    output_filename = "/root/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/dataset/RSC/seg_rois_" + src +"_seg_cls.pickle"
+    output_filename = "/root/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/dataset/RSC/seg_rois_" + src +"_seg_cls_min_method.pickle"
     with open(output_filename, 'wb') as fp:
         pickle.dump(ids,fp)
         pickle.dump(segp_list,fp)
