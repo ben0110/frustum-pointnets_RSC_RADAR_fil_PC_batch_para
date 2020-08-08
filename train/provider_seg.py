@@ -1065,14 +1065,17 @@ def expand_cordinates(corners,width_plus,length_plus):
     argmax_z = np.argmax(corners[:,2])
     argmin_x = np.argmin(corners[:,0])
     argmax_x = np.argmax(corners[:,0])
-    width = np.sqrt(pow(corners[argmax_z,2]-corners[argmax_x,2],2)+ pow(corners[argmax_z,0]-corners[argmax_x,2],2))
-    length= np.sqrt(pow(corners[argmax_z,2]-corners[argmin_x,2],2)+ pow(corners[argmax_z,0]-corners[argmin_x,2],2))
+    width = np.sqrt(pow(corners[argmax_z,2]-corners[argmax_x,2],2)+ pow(corners[argmax_z,0]-corners[argmax_x,0],2))
+    length= np.sqrt(pow(corners[argmax_z,2]-corners[argmin_x,2],2)+ pow(corners[argmax_z,0]-corners[argmin_x,0],2))
     height = abs(np.min(corners[:,1]) - np.max(corners[:,1]))
     diffs = [corners[argmax_z,2]-corners[argmin_x,2] ,corners[argmax_z,0]-corners[argmax_x,2]]
     rotation = math.atan(diffs[0]/diffs[1])
+    #print([height,width,length])
     width = width + width_plus
     length = length + length_plus
-    new_corners = get_3d_box([height,width,length],rotation,center)
+    new_corners = get_3d_box([height,width,length],-rotation,center)
+    #print(width_plus,length_plus)
+    #print(center,rotation,[height,width,length])
     return new_corners
 
 class RadarDataset_bbox_CLS(object):
@@ -1219,16 +1222,14 @@ class RadarDataset_bbox_CLS(object):
                                 ab_bbox_= expand_cordinates(ab_bbox,random.random()/2,random.random()/2)
                                 cls_label_gt = np.zeros(len(pc))
                                 fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], ab_bbox_)
-                                fig = mlab.figure(figure=None, bgcolor=(0.4, 0.4, 0.4), fgcolor=None, engine=None,
-                                                  size=(1000, 500))
-                                draw_gt_boxes3d([ab_bbox], fig, color=(1, 0, 0))
-                                draw_gt_boxes3d([ab_bbox_], fig, color=(1, 0, 0))
-                                # print(data[7])
-                                mlab.orientation_axes()
-                                raw_input()
+
                                 cls_label_gt[fg_pt_flag] = 1
                                 indices = np.argwhere(cls_label_gt == 1)
-                                AB_pc = pc[indices.reshape(-1)]
+                                indices_=indices.reshape(-1)
+                                if (len(indices_) == 0):
+                                    print("3asba")
+                                    continue
+                                AB_pc = pc[indices_]
                                 self.AB.append(AB_pc)
                                 self.type_list.append("Pedestrian")
                                 self.box3d_list.append(gt_corners[gt_list[n]])
@@ -1236,7 +1237,7 @@ class RadarDataset_bbox_CLS(object):
                                 self.size_list.append(
                                     [gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4], gt_boxes3d[gt_list[n]][5]])
                                 self.heading_list.append(gt_boxes3d[gt_list[n]][6])
-                                print(self.ids[i])
+
                                 self.batch_list.append(self.ids[i])
                                 self.indice_box.append(n)
 
@@ -2361,7 +2362,7 @@ if __name__ == '__main__':
         mlab.orientation_axes()
         raw_input()"""
 
-    dataset = RadarDataset_bbox_CLS('pc_radar_2', "KITTI", npoints=3500, split='val',
+    dataset = RadarDataset_bbox_CLS('pc_radar_2', "KITTI", npoints=3500, split='train',
                                     rotate_to_center=False, one_hot=True, all_batches=False,
                                     translate_radar_center=False,
                                     store_data=True, proposals_3=False, no_color=True)
