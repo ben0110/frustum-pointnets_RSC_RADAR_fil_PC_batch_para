@@ -234,18 +234,18 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
                 bin_y_max.append(np.min(bin_pc[i][:, 1]))
 
         minimum = []
-        if (bin_y_max[0] < bin_y_max[1]):
+        if bin_y_max[0] < bin_y_max[1]:
             minimum.append(1)
         else:
             minimum.append(-1)
         for m in range(1, len(bin_y_max) - 1):
-            if (bin_y_max[m] < bin_y_max[m - 1] and bin_y_max[m] < bin_y_max[m + 1]):
+            if bin_y_max[m] < bin_y_max[m - 1] and bin_y_max[m] < bin_y_max[m + 1]:
                 minimum.append(1)
-            elif (bin_y_max[m] > bin_y_max[m - 1] and bin_y_max[m] > bin_y_max[m + 1]):
+            elif bin_y_max[m] > bin_y_max[m - 1] and bin_y_max[m] > bin_y_max[m + 1]:
                 minimum.append(-1)
             else:
                 minimum.append(0)
-        if (bin_y_max[len(bin_y_max) - 1] < bin_y_max[len(bin_y_max) - 1]):
+        if bin_y_max[len(bin_y_max) - 1] < bin_y_max[len(bin_y_max) - 1]:
             minimum.append(1)
         else:
             minimum.append(-1)
@@ -285,7 +285,7 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
                     pc_ = pc_[choice]
                     feat = feat_AB[choice]
                     corners_AB = np.concatenate((corners_AB, corners))
-                    pc_AB_list = np.concatenate((pc_AB_list, pc))
+                    pc_AB_list = np.concatenate((pc_AB_list, pc_))
                     feat_AB_list = np.concatenate((feat_AB_list, feat))
 
         return pc_AB_list,feat_AB_list, corners_AB
