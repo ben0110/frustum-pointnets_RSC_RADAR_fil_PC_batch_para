@@ -284,7 +284,10 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
                     #print("len iter feat", len(feat))
                     pc_ = pc_[choice]
                     feat = feat_AB[choice]
-
+                    print(pc_.shape)
+                    print(feat.shape)
+                    print(corners_AB.shape)
+                    corners = np.expand_dims(corners, 0)
                     corners_AB = np.concatenate((corners_AB, corners))
                     pc_AB_list = np.concatenate((pc_AB_list, pc_))
                     feat_AB_list = np.concatenate((feat_AB_list, feat))
