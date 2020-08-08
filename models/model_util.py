@@ -290,7 +290,6 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
                     corners_AB = np.concatenate((corners_AB, corners))
                     pc_AB_list = np.concatenate((pc_AB_list, pc_))
                     feat_AB_list = np.concatenate((feat_AB_list, feat))
-                    pc[1230] = 0
 
         return pc_AB_list,feat_AB_list, corners_AB
 
