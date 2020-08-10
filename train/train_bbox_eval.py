@@ -409,7 +409,7 @@ def eval_one_epoch(sess, ops,dataset,split,database):
                                                         size_residual_GT, size_class_GT, heading_res_GT,
                                                         heading_class_GT, center_GT, score_list,
                                                         size_res_list, size_cls_list, heading_res_list,
-                                                        heading_cls_list,split)
+                                                        heading_cls_list,center_list)
 
     eval_per_frame(dataset.id_list, dataset.indice_box,  GT_box_list,
                    pred_box_list, IOU3d, score_list,database,split)
@@ -420,8 +420,8 @@ def eval_one_epoch(sess, ops,dataset,split,database):
                                  size_cls_list, size_res_list, rot_angle_list, segp_list,split)
 
 def compare_box_iou(id_list,size_residual_GT,size_class_GT,heading_res_GT,heading_class_GT,center_GT,
-                    score_list,size_res_list,size_cls_list,heading_res_list, heading_cls_list,center_list,split):
-    file1 = open(OUTPUT_FILE+"/"+split+"_results.txt" , "w")
+                    score_list,size_res_list,size_cls_list,heading_res_list, heading_cls_list,center_list):
+    #file1 = open(OUTPUT_FILE+"/results.txt" , "w")
     IoU=[]
     GT_box_list=[]
     pred_box_list=[]
@@ -433,21 +433,21 @@ def compare_box_iou(id_list,size_residual_GT,size_class_GT,heading_res_GT,headin
         pred_box_list.append(pred_box)
         iou_3d, iou_2d=provider.box3d_iou(pred_box,GT_box)
         IoU.append(iou_3d)
-        file1.write("3D box %f \n" % id_list[i])
+        """file1.write("3D box %f \n" % id_list[i])
         file1.write("iou %f  ,score %f \n "% (float(iou_3d) ,score_list[i]))
         #file1.write("label seg number: %f \n" % np.count_nonzero(seg_list[i] == 1))
         #file1.write("det seg number: %f\n" % np.count_nonzero(segp_list[i] == 1))
         #file1.write("correct per seen: %d" %np.sum(seg_list[i] == segp_list[i] )/len(seg_list[i])[0])
         file1.write("center: %f , %f, %f\n" % (center_list[i][0],center_list[i][1],center_list[i][2]))
-        file1.write("center_GT: %f , %f , %f\n" % (center_GT[i][0], center_GT[i][1], center_GT[i][2]))
+        file1.write("center_GT: %f , %f , %f\n" % (center_GT[i][0], center_GT[i][1], center_GT[i][2]))"""
         size_pred =  provider.class2size(size_cls_list[i], size_res_list[i])
-        file1.write("size pred: %f , %f , %f\n" % (size_pred[0],size_pred[1],size_pred[2]))
+        #file1.write("size pred: %f , %f , %f\n" % (size_pred[0],size_pred[1],size_pred[2]))
         size_GT = provider.class2size(size_class_GT[i], size_residual_GT[i])
-        file1.write("size GT: %f, %f , %f\n" %(size_GT[0],size_GT[1],size_GT[2]))
+        """file1.write("size GT: %f, %f , %f\n" %(size_GT[0],size_GT[1],size_GT[2]))
         file1.write("rotation pred %f\n" % provider.class2angle(heading_cls_list[i],heading_res_list[i],12))
-        file1.write("rotation GT %f\n" % provider.class2angle(heading_class_GT[i], heading_res_GT[i], 12))
+        file1.write("rotation GT %f\n" % provider.class2angle(heading_class_GT[i], heading_res_GT[i], 12))"""
 
-    file1.close()
+    #file1.close()
     return IoU,GT_box_list,pred_box_list
 
 
@@ -503,7 +503,7 @@ def eval_per_frame(id_list,indice_box_list,GT_box_list,pred_box_list,IOU3d,score
     #bboxes_frame,score_new_frame,id_new_frame,indices_frame,iou_new_frame = NMS(id_list_frame,pred_box_frame,IoU_frame,segp_sum_frame,score_frame,indice_box_frame)
     #load_GT
     print("id_list_frame[len(id_list_frame)-1]",id_list_frame[len(id_list_frame)-1])
-    corners_GT_frame,id_list_GT =provider.load_GT_eval(id_list_frame[len(id_list_frame)-1],split,database)
+    corners_GT_frame,id_list_GT =provider.load_GT_eval(id_list_frame[len(id_list_frame)-1],database,split)
     print("****************************************************************")
     print(len(id_list_frame),len(id_list_GT))
     print(id_list_frame[len(id_list_frame)-1],id_list_GT[len(id_list_GT)-1])
