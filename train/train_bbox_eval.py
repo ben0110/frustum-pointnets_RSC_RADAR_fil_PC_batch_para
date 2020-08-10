@@ -65,9 +65,7 @@ LOG_FOUT.write(str(FLAGS)+'\n')"""
 
 pathsplit = FLAGS.restore_model_path.split('/')
 OUTPUT_FILE = os.path.join('/', pathsplit[1], pathsplit[2], pathsplit[3], pathsplit[4], pathsplit[5],
-                           'results_train_eval_190/')
-if not os.path.exists(OUTPUT_FILE):
-    os.mkdir(OUTPUT_FILE)
+                           'results')
 
 BN_INIT_DECAY = 0.5
 BN_DECAY_DECAY_RATE = 0.5
@@ -77,8 +75,8 @@ BN_DECAY_CLIP = 0.99
 # Load Frustum Datasets. Use default data paths.
 #TRAIN_DATASET = provider.RadarDataset_bbox('pc_radar_2',npoints=NUM_POINT, split='train',
 #    rotate_to_center=False, random_flip=False, random_shift=False, one_hot=True,all_batches = True,translate_radar_center=False,store_data=True,proposals_3=True ,no_color=True)
-TEST_DATASET = provider.RadarDataset_bbox('pc_radar_2',npoints=NUM_POINT, split='val',rotate_to_center=False, one_hot=True,all_batches = True, translate_radar_center=False, store_data=True, proposals_3 =True ,no_color=True)
-
+EVAL_DATASET = provider.RadarDataset_bbox_CLS('pc_radar_2',"KITTI",npoints=NUM_POINT, split='val',rotate_to_center=False, one_hot=True,all_batches = True, translate_radar_center=False, store_data=True, proposals_3 =True ,no_color=True)
+TEST_DATASET = provider.RadarDataset_bbox_CLS('pc_radar_2',"KITTI_2",npoints=NUM_POINT, split='test',rotate_to_center=False, one_hot=True,all_batches = True, translate_radar_center=False, store_data=True, proposals_3 =True ,no_color=True)
 def log_string(out_str):
     #LOG_FOUT.write(out_str+'\n')
     #LOG_FOUT.flush()
@@ -210,7 +208,8 @@ def train():
             sys.stdout.flush()
              
             #train_one_epoch(sess, ops, train_writer)
-            eval_one_epoch(sess, ops)
+            eval_one_epoch(sess, ops,EVAL_DATASET,"val","KITTI")
+            eval_one_epoch(sess, ops, TEST_DATASET, "test", "KITTI_2")
 
             # Save the variables to disk.
             """if epoch % 10 == 0:
@@ -291,7 +290,7 @@ def softmax(x):
     probs /= np.sum(probs, axis=len(shape) - 1, keepdims=True)
     return probs
 
-def eval_one_epoch(sess, ops):
+def eval_one_epoch(sess, ops,dataset,split,database):
     ''' Simple evaluation for one epoch on the frustum dataset.
     ops is dict mapping from string to tf ops """
     '''
@@ -299,8 +298,8 @@ def eval_one_epoch(sess, ops):
     is_training = False
     log_string(str(datetime.now()))
     log_string('---- EPOCH %03d EVALUATION ----'%(EPOCH_CNT))
-    test_idxs = np.arange(0, len(TEST_DATASET))
-    num_batches = len(TEST_DATASET)/BATCH_SIZE
+    test_idxs = np.arange(0, len(dataset))
+    num_batches = len(dataset)/BATCH_SIZE
 
     # To collect statistics
     total_correct = 0
@@ -338,7 +337,7 @@ def eval_one_epoch(sess, ops):
         batch_data,batch_center_data, batch_one_hot_vec,batch_center, \
         batch_hclass, batch_hres, \
         batch_sclass, batch_sres = \
-            get_batch_bbox(TEST_DATASET, test_idxs, start_idx, end_idx,
+            get_batch_bbox(dataset, test_idxs, start_idx, end_idx,
                 NUM_POINT, NUM_CHANNEL)
 
         feed_dict = {ops['pointclouds_pl']: batch_data,
@@ -406,23 +405,23 @@ def eval_one_epoch(sess, ops):
         (float(iou3d_correct_cnt)/max(float(box_pred_nbr_sum),1.0)))
          
     EPOCH_CNT += 1
-    IOU3d, GT_box_list, pred_box_list = compare_box_iou(TEST_DATASET.id_list,
+    IOU3d, GT_box_list, pred_box_list = compare_box_iou(dataset.id_list,
                                                         size_residual_GT, size_class_GT, heading_res_GT,
                                                         heading_class_GT, center_GT, score_list,
                                                         size_res_list, size_cls_list, heading_res_list,
-                                                        heading_cls_list,
-                                                        center_list)
-    eval_per_frame(TEST_DATASET.id_list, TEST_DATASET.indice_box,  GT_box_list,
-                   pred_box_list, IOU3d, score_list)
+                                                        heading_cls_list,split)
 
-    write_detection_results_test("", TEST_DATASET.id_list,
+    eval_per_frame(dataset.id_list, dataset.indice_box,  GT_box_list,
+                   pred_box_list, IOU3d, score_list,database,split)
+
+    write_detection_results_test("", dataset.id_list,
                                  center_list,
                                  heading_cls_list, heading_res_list,
-                                 size_cls_list, size_res_list, rot_angle_list, segp_list)
+                                 size_cls_list, size_res_list, rot_angle_list, segp_list,split)
 
 def compare_box_iou(id_list,size_residual_GT,size_class_GT,heading_res_GT,heading_class_GT,center_GT,
-                    score_list,size_res_list,size_cls_list,heading_res_list, heading_cls_list,center_list):
-    file1 = open(OUTPUT_FILE+"/results.txt" , "w")
+                    score_list,size_res_list,size_cls_list,heading_res_list, heading_cls_list,center_list,split):
+    file1 = open(OUTPUT_FILE+"/"+split+"_results.txt" , "w")
     IoU=[]
     GT_box_list=[]
     pred_box_list=[]
@@ -453,7 +452,7 @@ def compare_box_iou(id_list,size_residual_GT,size_class_GT,heading_res_GT,headin
 
 
 
-def eval_per_frame(id_list,indice_box_list,GT_box_list,pred_box_list,IOU3d,score_list):
+def eval_per_frame(id_list,indice_box_list,GT_box_list,pred_box_list,IOU3d,score_list,database,split):
     seg_list_frame=[]
     segp_list_frame=[]
     IoU_frame = []
@@ -504,7 +503,7 @@ def eval_per_frame(id_list,indice_box_list,GT_box_list,pred_box_list,IOU3d,score
     #bboxes_frame,score_new_frame,id_new_frame,indices_frame,iou_new_frame = NMS(id_list_frame,pred_box_frame,IoU_frame,segp_sum_frame,score_frame,indice_box_frame)
     #load_GT
     print("id_list_frame[len(id_list_frame)-1]",id_list_frame[len(id_list_frame)-1])
-    corners_GT_frame,id_list_GT =provider.load_GT_eval(id_list_frame[len(id_list_frame)-1])
+    corners_GT_frame,id_list_GT =provider.load_GT_eval(id_list_frame[len(id_list_frame)-1],split,database)
     print("****************************************************************")
     print(len(id_list_frame),len(id_list_GT))
     print(id_list_frame[len(id_list_frame)-1],id_list_GT[len(id_list_GT)-1])
@@ -599,10 +598,13 @@ def precision_recall(id_list_frame,corners_frame,corners_GT_frame,scores,iou_fra
                 print("iou nms",iou_nms)
                 #max_iou = np.max(abs)
                 #iou.append(max_iou)
+                if len(iou_nms)>1:
+                    iou_nms.sort()
+                    for z in range(1,len(iou_nms)):
+                        iou_nms[z]=0.0
                 for c in range(len(iou_nms)):
                     iou.append(iou_nms[c])
             print("new iou", iou)
-            print(iou)
             TP_5 = 0
             for m in range(len(iou)):
                 if (iou[m] > 0.5):
@@ -668,9 +670,9 @@ def precision_recall(id_list_frame,corners_frame,corners_GT_frame,scores,iou_fra
 def write_detection_results_test(result_dir, id_list, center_list, \
                                  heading_cls_list, heading_res_list, \
                                  size_cls_list, size_res_list, \
-                                 rot_angle_list, segp_list):
+                                 rot_angle_list, segp_list,split):
     ''' Write frustum pointnets results to KITTI format label files. '''
-    result_dir = OUTPUT_FILE
+    result_dir = OUTPUT_FILE+split
     if result_dir is None: return
     results = {}  # map from idx to list of strings, each string is a line (without \n)
 

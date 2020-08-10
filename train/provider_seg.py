@@ -239,9 +239,9 @@ def get_radar_masks(input, input_radar):
     return radar_masks, radar_center_masks
 
 
-def load_GT_eval(indice, database):
+def load_GT_eval(indice, database,split):
     data_val = KittiDataset('radar_2', dataset=database, root_dir='/root/frustum-pointnets_RSC/dataset/', mode='TRAIN',
-                            split='val')
+                            split=split)
     id_list = data_val.sample_id_list
     obj_frame = []
     corners_frame = []
