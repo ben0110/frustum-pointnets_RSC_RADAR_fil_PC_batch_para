@@ -58,6 +58,8 @@ LOG_DIR=os.path.join(LOG_DIR,datum)
 if not os.path.exists(LOG_DIR):
     os.mkdir(LOG_DIR)
     os.mkdir(LOG_DIR+"/ckpt")
+OUTPUT_FILE = os.path.join(LOG_DIR,
+                           'results')
 os.system('cp %s %s' % (MODEL_FILE, LOG_DIR)) # bkp of model def
 os.system('cp %s %s' % (os.path.join(BASE_DIR, 'train_bbox.py'), LOG_DIR))
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
@@ -75,7 +77,8 @@ BN_DECAY_CLIP = 0.99
 # Load Frustum Datasets. Use default data paths.
 TRAIN_DATASET = provider.RadarDataset_bbox_CLS('pc_radar_2','KITTI',npoints=NUM_POINT, split='train',
     rotate_to_center=False, random_flip=False, random_shift=False, one_hot=True,all_batches = True,translate_radar_center=False,store_data=True,proposals_3=True ,no_color=True)
-TEST_DATASET = provider.RadarDataset_bbox_CLS('pc_radar_2','KITTI',npoints=NUM_POINT, split='val',rotate_to_center=False, one_hot=True,all_batches = True, translate_radar_center=False, store_data=True, proposals_3 =True ,no_color=True)
+EVAL_DATASET = provider.RadarDataset_bbox_CLS('pc_radar_2','KITTI',npoints=NUM_POINT, split='val',rotate_to_center=False, one_hot=True,all_batches = True, translate_radar_center=False, store_data=True, proposals_3 =True ,no_color=True)
+TEST_DATASET = provider.RadarDataset_bbox_CLS('pc_radar_2','KITTI_2',npoints=NUM_POINT, split='test',rotate_to_center=False, one_hot=True,all_batches = True, translate_radar_center=False, store_data=True, proposals_3 =True ,no_color=True)
 
 def log_string(out_str):
     LOG_FOUT.write(out_str+'\n')
@@ -178,6 +181,7 @@ def train():
         # Add summary writers
         merged = tf.summary.merge_all()
         train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'), sess.graph)
+        eval_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'), sess.graph)
         test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'), sess.graph)
 
         # Init variables
@@ -206,276 +210,14 @@ def train():
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
              
-            train_one_epoch(sess, ops, train_writer)
-            size_residual_GT, size_class_GT, heading_res_GT, \
-            heading_class_GT, center_GT, score_list, \
-            size_res_list, size_cls_list, heading_res_list, \
-            heading_cls_list, \
-            center_list =  eval_one_epoch(sess, ops, test_writer)
-
-            if epoch == 200:
-                IOU3d, GT_box_list, pred_box_list = compare_box_iou(TEST_DATASET.id_list,
-                                                                    size_residual_GT, size_class_GT, heading_res_GT,
-                                                                    heading_class_GT, center_GT, score_list,
-                                                                    size_res_list, size_cls_list, heading_res_list,
-                                                                    heading_cls_list,
-                                                                    center_list)
-                eval_per_frame(TEST_DATASET.id_list, TEST_DATASET.indice_box, GT_box_list,
-                               pred_box_list, IOU3d, score_list)
-
-                #write_detection_results_test("", TEST_DATASET.id_list,
-                #                             center_list,
-                #                             heading_cls_list, heading_res_list,
-                #                             size_cls_list, size_res_list, rot_angle_list, segp_list)
+            train_one_epoch(sess, ops, train_writer,TRAIN_DATASET)
+            eval_one_epoch(sess, ops, eval_writer,EVAL_DATASET,"KITTI","split")
+            eval_one_epoch(sess,ops,test_writer,TEST_DATASET,"KITTI_2","train")
             # Save the variables to disk.
             if epoch % 10 == 0:
                 save_path = saver.save(sess, os.path.join(LOG_DIR,"ckpt" ,"model_"+str(epoch)+".ckpt"))
                 log_string("Model saved in file: %s" % save_path)
 
-def compare_box_iou(id_list,size_residual_GT,size_class_GT,heading_res_GT,heading_class_GT,center_GT,
-                    score_list,size_res_list,size_cls_list,heading_res_list, heading_cls_list,center_list):
-    #file1 = open(OUTPUT_FILE+"/results.txt" , "w")
-    IoU=[]
-    GT_box_list=[]
-    pred_box_list=[]
-    for i in range(len(size_residual_GT)):
-
-        GT_box = provider.get_3d_box(provider.class2size(size_class_GT[i], size_residual_GT[i]), provider.class2angle(heading_class_GT[i], heading_res_GT[i], 12), center_GT[i])
-        pred_box = provider.get_3d_box(provider.class2size(size_cls_list[i],size_res_list[i]),provider.class2angle(heading_cls_list[i],heading_res_list[i],12),center_list[i])
-        GT_box_list.append(GT_box)
-        pred_box_list.append(pred_box)
-        iou_3d, iou_2d=provider.box3d_iou(pred_box,GT_box)
-        IoU.append(iou_3d)
-        """file1.write("3D box %f \n" % id_list[i])
-        file1.write("iou %f  ,score %f \n "% (float(iou_3d) ,score_list[i]))
-        #file1.write("label seg number: %f \n" % np.count_nonzero(seg_list[i] == 1))
-        #file1.write("det seg number: %f\n" % np.count_nonzero(segp_list[i] == 1))
-        #file1.write("correct per seen: %d" %np.sum(seg_list[i] == segp_list[i] )/len(seg_list[i])[0])
-        file1.write("center: %f , %f, %f\n" % (center_list[i][0],center_list[i][1],center_list[i][2]))
-        file1.write("center_GT: %f , %f , %f\n" % (center_GT[i][0], center_GT[i][1], center_GT[i][2]))"""
-        size_pred =  provider.class2size(size_cls_list[i], size_res_list[i])
-        #file1.write("size pred: %f , %f , %f\n" % (size_pred[0],size_pred[1],size_pred[2]))
-        size_GT = provider.class2size(size_class_GT[i], size_residual_GT[i])
-        """file1.write("size GT: %f, %f , %f\n" %(size_GT[0],size_GT[1],size_GT[2]))
-        file1.write("rotation pred %f\n" % provider.class2angle(heading_cls_list[i],heading_res_list[i],12))
-        file1.write("rotation GT %f\n" % provider.class2angle(heading_class_GT[i], heading_res_GT[i], 12))"""
-
-    #file1.close()
-    return IoU,GT_box_list,pred_box_list
-
-
-
-def eval_per_frame(id_list,indice_box_list,GT_box_list,pred_box_list,IOU3d,score_list):
-    seg_list_frame=[]
-    segp_list_frame=[]
-    IoU_frame = []
-    GT_box_frame = []
-    pred_box_frame = []
-    score_frame =[]
-    segp_sum_frame = []
-    seg_sum_GT_frame =[]
-    indice_box_frame=[]
-    id = id_list[0]
-    m = 1
-    id_list_frame = []
-
-    for i in range(1, len(score_list)):
-        if id == id_list[i]:
-            m = m + 1
-        if id != id_list[i] or i == len(id_list) - 1:
-            seg_prov = []
-            segp_prov = []
-            score_prov = []
-            GT_box_prov = []
-            pred_box_prov = []
-            segp_sum=[]
-            seg_sum=[]
-            iou_prov=[]
-            indice_box_prov=[]
-            for j in range(i-m,i):
-                indice_box_prov.append(indice_box_list[j])
-                pred_box_prov.append(pred_box_list[j])
-                score_prov.append(score_list[j])
-                GT_box_prov.append(GT_box_list[j])
-                iou_prov.append(IOU3d[j])
-            id_list_frame.append(id)
-            seg_list_frame.append(seg_prov)
-            segp_list_frame.append(segp_prov)
-            score_frame.append(score_prov)
-            IoU_frame.append(iou_prov)
-            GT_box_frame.append(GT_box_prov)
-            pred_box_frame.append(pred_box_prov)
-            indice_box_frame.append(indice_box_prov)
-            segp_sum_frame.append(segp_sum)
-            seg_sum_GT_frame.append(seg_sum)
-            m = 1
-            id = id_list[i]
-
-
-    #score_list_frame, \
-    #bboxes_frame,score_new_frame,id_new_frame,indices_frame,iou_new_frame = NMS(id_list_frame,pred_box_frame,IoU_frame,segp_sum_frame,score_frame,indice_box_frame)
-    #load_GT
-    print("id_list_frame[len(id_list_frame)-1]",id_list_frame[len(id_list_frame)-1])
-    corners_GT_frame,id_list_GT =provider.load_GT_eval(id_list_frame[len(id_list_frame)-1],'KITTI')
-    print("****************************************************************")
-    print(len(id_list_frame),len(id_list_GT))
-    print(id_list_frame[len(id_list_frame)-1],id_list_GT[len(id_list_GT)-1])
-    precision_recall(id_list_frame,pred_box_frame,corners_GT_frame,score_frame,IoU_frame,indice_box_frame,id_list_GT)
-
-def NMS_unique(iou,corners_unique,scores_unique):
-    ind_sort = np.argsort([x for x in scores_unique])
-    bboxes = []
-    score_list = []
-    id_list = []
-    indice = []
-    iou_prov = []
-    for i in range(len(corners_unique)):
-        bbox = corners_unique[ind_sort[i]]
-        flag = 1
-        for k in range(i + 1, len(corners_unique)):
-            print("index ", ind_sort[i], scores_unique[ind_sort[i]], "index _comp: ", ind_sort[k],
-                  scores_unique[ind_sort[k]], "IoU: ", provider.box3d_iou(bbox, corners_unique[ind_sort[k]]))
-            if provider.box3d_iou(bbox, corners_unique[ind_sort[k]])[1] > 0.2:
-                flag = -1
-                break
-        if flag == 1:
-            bboxes.append(bbox)
-            #id_list.append(id_list_frame[j][ind_sort[i]])
-
-            iou_prov.append(iou[ind_sort[i]])
-            score_list.append(scores_unique[ind_sort[i]])
-
-    for i in range(len(iou_prov)-1):
-        iou_prov[i]=0.0
-    return iou_prov
-
-def precision_recall(id_list_frame,corners_frame,corners_GT_frame,scores,iou_frame,indice_box_frame,id_list_GT):
-    IoU = []
-    gt_box_num = []
-    iou_3d_frame = []
-    iou_2d_frame = []
-    accuracy_5 = 0.0
-    recall_5 = 0.0
-    accuracy_4 = 0.0
-    recall_4 = 0.0
-    accuracy_35 = 0.0
-    recall_35 = 0.0
-    accuracy_3 = 0.0
-    recall_3 = 0.0
-    accuracy_25 = 0.0
-    recall_25 = 0.0
-
-    corners_GT_orig = corners_GT_frame
-    corners_orig = corners_frame
-    id_list_frame = np.asarray(id_list_frame)
-    for i in range(len(id_list_GT)):
-        frame = np.where(id_list_frame == id_list_GT[i])
-
-        print("*******************id*************: ", id_list_GT[i])
-        print("indices", frame[0])
-        print("nbr of GT boxes", len(corners_GT_frame[i]))
-        if (frame[0].size == 0):
-            accuracy_frame = 0
-            recall_frame = 0
-        else:
-            frame_id = frame[0][0]
-            print("nbr of predicted boxes: ", len(corners_frame[frame_id]))
-            print("nbr of GT boxes", len(corners_GT_frame[frame_id]))
-            print("indices", indice_box_frame[frame_id])
-            print("iou_frame", iou_frame[frame_id])
-            old_iou = []
-            indices = []
-            scores_ = []
-            corners_=[]
-            iou = []
-            for j in range(len(indice_box_frame[frame_id])):
-                old_iou.append(iou_frame[frame_id][j])
-                indices.append(indice_box_frame[frame_id][j])
-                scores_.append(scores[frame_id][j])
-                corners_.append(corners_frame[frame_id][j])
-
-            unique = np.unique(indices)
-            print("old_iou", old_iou)
-            for j in range(len(unique)):
-                indices_unique = np.argwhere(indices == unique[j])
-
-                print("indice_unique", indices_unique[0])
-                # max_iou=np.max(old_iou[indices_unique[0]])
-
-                abs = [old_iou[x] for x in indices_unique[:, 0]]
-                corners_unique=[corners_[x] for x in indices_unique[:, 0]]
-                scores_unique=[scores_[x] for x in indices_unique[:, 0]]
-                print("scores_unique", scores_unique)
-                print("iou unique", abs)
-                iou_nms= NMS_unique(abs,corners_unique,scores_unique)
-                print("iou nms",iou_nms)
-                #max_iou = np.max(abs)
-                #iou.append(max_iou)
-                for c in range(len(iou_nms)):
-                    iou.append(iou_nms[c])
-            print("new iou", iou)
-            print(iou)
-            TP_5 = 0
-            for m in range(len(iou)):
-                if (iou[m] > 0.5):
-                    TP_5 += 1.0
-            TP_4 = 0
-            for m in range(len(iou)):
-                if (iou[m] > 0.4):
-                    TP_4 += 1.0
-
-            TP_35 = 0
-            for m in range(len(iou)):
-                if (iou[m] > 0.35):
-                    TP_35 += 1.0
-            TP_3 = 0
-            for m in range(len(iou)):
-                if (iou[m] > 0.4):
-                    TP_3 += 1.0
-
-            TP_25 = 0
-            for m in range(len(iou)):
-                if (iou[m] > 0.25):
-                    TP_25 += 1.0
-
-            accuracy_frame_5 = TP_5 / float(max(1.0, float(len(iou))))
-            recall_frame_5 = TP_5 / float(len(corners_GT_orig[i]))
-
-            accuracy_frame_4 = TP_4 / float(max(1.0, float(len(iou))))
-            recall_frame_4 = TP_4 / float(len(corners_GT_orig[i]))
-
-            accuracy_frame_35 = TP_35 / float(max(1.0, float(len(iou))))
-            recall_frame_35 = TP_35 / float(len(corners_GT_orig[i]))
-
-            accuracy_frame_3 = TP_3 / float(max(1.0, float(len(iou))))
-            recall_frame_3 = TP_3 / float(len(corners_GT_orig[i]))
-
-            accuracy_frame_25 = TP_25 / float(max(1.0, float(len(iou))))
-            recall_frame_25 = TP_25 / float(len(corners_GT_orig[i]))
-
-            accuracy_5 += accuracy_frame_5
-            recall_5 += recall_frame_5
-            accuracy_4 += accuracy_frame_4
-            recall_4 += recall_frame_4
-            accuracy_35 += accuracy_frame_35
-            recall_35 += recall_frame_35
-            accuracy_3 += accuracy_frame_3
-            recall_3 += recall_frame_3
-            accuracy_25 += accuracy_frame_25
-            recall_25 += recall_frame_25
-
-        # iou_3d_frame.append(iou_3d_prov)
-
-    print("accuracy_5", accuracy_5 / max(len(corners_frame), 1))
-    print("recall_5", recall_5 / max(len(corners_GT_orig), 1))
-    print("accuracy_4", accuracy_4 / max(len(corners_frame), 1))
-    print("recall_4", recall_4 / max(len(corners_GT_orig), 1))
-    print("accuracy_35", accuracy_35 / max(len(corners_frame), 1))
-    print("recall_35", recall_35 / max(len(corners_GT_orig), 1))
-    print("accuracy_3", accuracy_3 / max(len(corners_frame), 1))
-    print("recall_3", recall_3 / max(len(corners_GT_orig), 1))
-    print("accuracy_25", accuracy_25 / max(len(corners_frame), 1))
-    print("recall_25", recall_25 / max(len(corners_GT_orig), 1))
 
 
 def train_one_epoch(sess, ops, train_writer):
@@ -549,17 +291,18 @@ def softmax(x):
     probs = np.exp(x - np.max(x, axis=len(shape) - 1, keepdims=True))
     probs /= np.sum(probs, axis=len(shape) - 1, keepdims=True)
     return probs
-        
-def eval_one_epoch(sess, ops, test_writer):
+
+
+def eval_one_epoch(sess, ops,test_writer, dataset, database, split):
     ''' Simple evaluation for one epoch on the frustum dataset.
     ops is dict mapping from string to tf ops """
     '''
     global EPOCH_CNT
     is_training = False
     log_string(str(datetime.now()))
-    log_string('---- EPOCH %03d EVALUATION ----'%(EPOCH_CNT))
-    test_idxs = np.arange(0, len(TEST_DATASET))
-    num_batches = len(TEST_DATASET)/BATCH_SIZE
+    log_string('---- EPOCH %03d EVALUATION ----' % (EPOCH_CNT))
+    test_idxs = np.arange(0, len(dataset))
+    num_batches = len(dataset) / BATCH_SIZE
 
     # To collect statistics
     total_correct = 0
@@ -588,17 +331,17 @@ def eval_one_epoch(sess, ops, test_writer):
     heading_res_GT = []
     size_class_GT = []
     size_residual_GT = []
-   
-    # Simple evaluation with batches 
+
+    # Simple evaluation with batches
     for batch_idx in range(num_batches):
         start_idx = batch_idx * BATCH_SIZE
-        end_idx = (batch_idx+1) * BATCH_SIZE
+        end_idx = (batch_idx + 1) * BATCH_SIZE
 
-        batch_data,batch_center_data, batch_one_hot_vec,batch_center, \
+        batch_data, batch_center_data, batch_one_hot_vec, batch_center, \
         batch_hclass, batch_hres, \
         batch_sclass, batch_sres = \
-            get_batch_bbox(TEST_DATASET, test_idxs, start_idx, end_idx,
-                NUM_POINT, NUM_CHANNEL)
+            get_batch_bbox(dataset, test_idxs, start_idx, end_idx,
+                           NUM_POINT, NUM_CHANNEL)
 
         feed_dict = {ops['pointclouds_pl']: batch_data,
                      ops['pointcloud_center_pl']: batch_center_data,
@@ -610,25 +353,26 @@ def eval_one_epoch(sess, ops, test_writer):
                      ops['size_residual_label_pl']: batch_sres,
                      ops['is_training_pl']: is_training}
 
-        #summary, step, loss_val, logits_val, iou2ds, iou3ds,box_pred_nbr = \
+        # summary, step, loss_val, logits_val, iou2ds, iou3ds,box_pred_nbr = \
         #    sess.run([ops['merged'], ops['step'],
         #        ops['loss'], ops['logits'],
         #        ops['end_points']['iou2ds'], ops['end_points']['iou3ds'],ops['end_points']['box_pred_nbr']],
         #        feed_dict=feed_dict)
-        summary, step, _, loss_val, iou2ds, iou3ds, box_pred_nbr,centers_pred_val, heading_scores, heading_residuals, size_scores, size_residuals = \
+        summary, step, _, loss_val, iou2ds, iou3ds, box_pred_nbr, centers_pred_val, heading_scores, heading_residuals, size_scores, size_residuals = \
             sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'],
-                      ops['end_points']['iou2ds'], ops['end_points']['iou3ds'], ops['end_points']['box_pred_nbr'],ops['end_points']['center'],ops['end_points']['heading_scores'], ops['end_points']['heading_residuals'], \
+                      ops['end_points']['iou2ds'], ops['end_points']['iou3ds'], ops['end_points']['box_pred_nbr'],
+                      ops['centers_pred'], ops['end_points']['heading_scores'], ops['end_points']['heading_residuals'], \
                       ops['end_points']['size_scores'], ops['end_points']['size_residuals']],
                      feed_dict=feed_dict)
 
         test_writer.add_summary(summary, step)
 
-        total_seen += (BATCH_SIZE*NUM_POINT)
+        total_seen += (BATCH_SIZE * NUM_POINT)
         loss_sum += loss_val
         iou2ds_sum += np.sum(iou2ds)
         iou3ds_sum += np.sum(iou3ds)
-        iou3d_correct_cnt += np.sum(iou3ds>=0.5)
-        box_pred_nbr_sum+= np.sum(box_pred_nbr)
+        iou3d_correct_cnt += np.sum(iou3ds >= 0.5)
+        box_pred_nbr_sum += np.sum(box_pred_nbr)
 
         heading_cls = np.argmax(heading_scores, 1)  # B
         size_cls = np.argmax(size_scores, 1)  # B
@@ -659,20 +403,314 @@ def eval_one_epoch(sess, ops, test_writer):
 
     log_string('eval mean loss: %f' % (loss_sum / float(num_batches)))
     log_string('eval box IoU (ground/3D): %f / %f' % \
-        (iou2ds_sum / max(float(box_pred_nbr_sum),1.0), iou3ds_sum / \
-            max(float(box_pred_nbr_sum),1.0)))
+               (iou2ds_sum / max(float(box_pred_nbr_sum), 1.0), iou3ds_sum / \
+                max(float(box_pred_nbr_sum), 1.0)))
     log_string('eval box estimation accuracy (IoU=0.5): %f' % \
-        (float(iou3d_correct_cnt)/max(float(box_pred_nbr_sum),1.0)))
-         
+               (float(iou3d_correct_cnt) / max(float(box_pred_nbr_sum), 1.0)))
+
     EPOCH_CNT += 1
+    IOU3d, GT_box_list, pred_box_list = compare_box_iou(dataset.id_list,
+                                                        size_residual_GT, size_class_GT, heading_res_GT,
+                                                        heading_class_GT, center_GT, score_list,
+                                                        size_res_list, size_cls_list, heading_res_list,
+                                                        heading_cls_list, center_list)
 
-    return size_residual_GT, size_class_GT, heading_res_GT,\
-                                                        heading_class_GT, center_GT, score_list,\
-                                                        size_res_list, size_cls_list, heading_res_list,\
-                                                        heading_cls_list,\
-                                                        center_list
+    eval_per_frame(dataset.id_list, dataset.indice_box, GT_box_list,
+                   pred_box_list, IOU3d, score_list, database, split)
+
+    write_detection_results_test("", dataset.id_list,
+                                 center_list,
+                                 heading_cls_list, heading_res_list,
+                                 size_cls_list, size_res_list, rot_angle_list, segp_list,score_list, split)
 
 
+def compare_box_iou(id_list, size_residual_GT, size_class_GT, heading_res_GT, heading_class_GT, center_GT,
+                    score_list, size_res_list, size_cls_list, heading_res_list, heading_cls_list, center_list):
+    # file1 = open(OUTPUT_FILE+"/results.txt" , "w")
+    IoU = []
+    GT_box_list = []
+    pred_box_list = []
+    for i in range(len(size_residual_GT)):
+        GT_box = provider.get_3d_box(provider.class2size(size_class_GT[i], size_residual_GT[i]),
+                                     provider.class2angle(heading_class_GT[i], heading_res_GT[i], 12), center_GT[i])
+        pred_box = provider.get_3d_box(provider.class2size(size_cls_list[i], size_res_list[i]),
+                                       provider.class2angle(heading_cls_list[i], heading_res_list[i], 12),
+                                       center_list[i])
+        GT_box_list.append(GT_box)
+        pred_box_list.append(pred_box)
+        iou_3d, iou_2d = provider.box3d_iou(pred_box, GT_box)
+        IoU.append(iou_3d)
+        """file1.write("3D box %f \n" % id_list[i])
+        file1.write("iou %f  ,score %f \n "% (float(iou_3d) ,score_list[i]))
+        #file1.write("label seg number: %f \n" % np.count_nonzero(seg_list[i] == 1))
+        #file1.write("det seg number: %f\n" % np.count_nonzero(segp_list[i] == 1))
+        #file1.write("correct per seen: %d" %np.sum(seg_list[i] == segp_list[i] )/len(seg_list[i])[0])
+        file1.write("center: %f , %f, %f\n" % (center_list[i][0],center_list[i][1],center_list[i][2]))
+        file1.write("center_GT: %f , %f , %f\n" % (center_GT[i][0], center_GT[i][1], center_GT[i][2]))"""
+        size_pred = provider.class2size(size_cls_list[i], size_res_list[i])
+        # file1.write("size pred: %f , %f , %f\n" % (size_pred[0],size_pred[1],size_pred[2]))
+        size_GT = provider.class2size(size_class_GT[i], size_residual_GT[i])
+        """file1.write("size GT: %f, %f , %f\n" %(size_GT[0],size_GT[1],size_GT[2]))
+        file1.write("rotation pred %f\n" % provider.class2angle(heading_cls_list[i],heading_res_list[i],12))
+        file1.write("rotation GT %f\n" % provider.class2angle(heading_class_GT[i], heading_res_GT[i], 12))"""
+
+    # file1.close()
+    return IoU, GT_box_list, pred_box_list
+
+
+def eval_per_frame(id_list, indice_box_list, GT_box_list, pred_box_list, IOU3d, score_list, database, split):
+    seg_list_frame = []
+    segp_list_frame = []
+    IoU_frame = []
+    GT_box_frame = []
+    pred_box_frame = []
+    score_frame = []
+    segp_sum_frame = []
+    seg_sum_GT_frame = []
+    indice_box_frame = []
+    id = id_list[0]
+    m = 1
+    id_list_frame = []
+
+    for i in range(1, len(score_list)):
+        if id == id_list[i]:
+            m = m + 1
+        if id != id_list[i] or i == len(id_list) - 1:
+            seg_prov = []
+            segp_prov = []
+            score_prov = []
+            GT_box_prov = []
+            pred_box_prov = []
+            segp_sum = []
+            seg_sum = []
+            iou_prov = []
+            indice_box_prov = []
+            for j in range(i - m, i):
+                indice_box_prov.append(indice_box_list[j])
+                pred_box_prov.append(pred_box_list[j])
+                score_prov.append(score_list[j])
+                GT_box_prov.append(GT_box_list[j])
+                iou_prov.append(IOU3d[j])
+            id_list_frame.append(id)
+            seg_list_frame.append(seg_prov)
+            segp_list_frame.append(segp_prov)
+            score_frame.append(score_prov)
+            IoU_frame.append(iou_prov)
+            GT_box_frame.append(GT_box_prov)
+            pred_box_frame.append(pred_box_prov)
+            indice_box_frame.append(indice_box_prov)
+            segp_sum_frame.append(segp_sum)
+            seg_sum_GT_frame.append(seg_sum)
+            m = 1
+            id = id_list[i]
+
+    # score_list_frame, \
+    # bboxes_frame,score_new_frame,id_new_frame,indices_frame,iou_new_frame = NMS(id_list_frame,pred_box_frame,IoU_frame,segp_sum_frame,score_frame,indice_box_frame)
+    # load_GT
+    #print("id_list_frame[len(id_list_frame)-1]", id_list_frame[len(id_list_frame) - 1])
+    corners_GT_frame, id_list_GT = provider.load_GT_eval(id_list_frame[len(id_list_frame) - 1], database, split)
+    #print("****************************************************************")
+    #print(len(id_list_frame), len(id_list_GT))
+    #print(id_list_frame[len(id_list_frame) - 1], id_list_GT[len(id_list_GT) - 1])
+    precision_recall(id_list_frame, pred_box_frame, corners_GT_frame, score_frame, IoU_frame, indice_box_frame,
+                     id_list_GT)
+
+
+def NMS_unique(iou, corners_unique, scores_unique):
+    ind_sort = np.argsort([x for x in scores_unique])
+    bboxes = []
+    score_list = []
+    id_list = []
+    indice = []
+    iou_prov = []
+    for i in range(len(corners_unique)):
+        bbox = corners_unique[ind_sort[i]]
+        flag = 1
+        for k in range(i + 1, len(corners_unique)):
+            #print("index ", ind_sort[i], scores_unique[ind_sort[i]], "index _comp: ", ind_sort[k],
+            #      scores_unique[ind_sort[k]], "IoU: ", provider.box3d_iou(bbox, corners_unique[ind_sort[k]]))
+            if provider.box3d_iou(bbox, corners_unique[ind_sort[k]])[1] > 0.2:
+                flag = -1
+                break
+        if flag == 1:
+            bboxes.append(bbox)
+            # id_list.append(id_list_frame[j][ind_sort[i]])
+
+            iou_prov.append(iou[ind_sort[i]])
+            score_list.append(scores_unique[ind_sort[i]])
+
+    for i in range(len(iou_prov) - 1):
+        iou_prov[i] = 0.0
+    return iou_prov
+
+
+def precision_recall(id_list_frame, corners_frame, corners_GT_frame, scores, iou_frame, indice_box_frame, id_list_GT):
+    IoU = []
+    gt_box_num = []
+    iou_3d_frame = []
+    iou_2d_frame = []
+    accuracy_5 = 0.0
+    recall_5 = 0.0
+    accuracy_4 = 0.0
+    recall_4 = 0.0
+    accuracy_35 = 0.0
+    recall_35 = 0.0
+    accuracy_3 = 0.0
+    recall_3 = 0.0
+    accuracy_25 = 0.0
+    recall_25 = 0.0
+
+    corners_GT_orig = corners_GT_frame
+    corners_orig = corners_frame
+    id_list_frame = np.asarray(id_list_frame)
+    for i in range(len(id_list_GT)):
+        frame = np.where(id_list_frame == id_list_GT[i])
+
+        #print("*******************id*************: ", id_list_GT[i])
+        #print("indices", frame[0])
+        #print("nbr of GT boxes", len(corners_GT_frame[i]))
+        if (frame[0].size == 0):
+            accuracy_frame = 0
+            recall_frame = 0
+        else:
+            frame_id = frame[0][0]
+            #print("nbr of predicted boxes: ", len(corners_frame[frame_id]))
+            #print("nbr of GT boxes", len(corners_GT_frame[frame_id]))
+            #print("indices", indice_box_frame[frame_id])
+            #print("iou_frame", iou_frame[frame_id])
+            old_iou = []
+            indices = []
+            scores_ = []
+            corners_ = []
+            iou = []
+            for j in range(len(indice_box_frame[frame_id])):
+                old_iou.append(iou_frame[frame_id][j])
+                indices.append(indice_box_frame[frame_id][j])
+                scores_.append(scores[frame_id][j])
+                corners_.append(corners_frame[frame_id][j])
+
+            unique = np.unique(indices)
+            #print("old_iou", old_iou)
+            for j in range(len(unique)):
+                indices_unique = np.argwhere(indices == unique[j])
+
+                #print("indice_unique", indices_unique[0])
+                # max_iou=np.max(old_iou[indices_unique[0]])
+
+                abs = [old_iou[x] for x in indices_unique[:, 0]]
+                corners_unique = [corners_[x] for x in indices_unique[:, 0]]
+                scores_unique = [scores_[x] for x in indices_unique[:, 0]]
+                #print("scores_unique", scores_unique)
+                #print("iou unique", abs)
+                iou_nms = NMS_unique(abs, corners_unique, scores_unique)
+                #print("iou nms", iou_nms)
+                # max_iou = np.max(abs)
+                # iou.append(max_iou)
+                if len(iou_nms) > 1:
+                    iou_nms.sort()
+                    for z in range(1, len(iou_nms)):
+                        iou_nms[z] = 0.0
+                for c in range(len(iou_nms)):
+                    iou.append(iou_nms[c])
+            #print("new iou", iou)
+            TP_5 = 0
+            for m in range(len(iou)):
+                if (iou[m] > 0.5):
+                    TP_5 += 1.0
+            TP_4 = 0
+            for m in range(len(iou)):
+                if (iou[m] > 0.4):
+                    TP_4 += 1.0
+
+            TP_35 = 0
+            for m in range(len(iou)):
+                if (iou[m] > 0.35):
+                    TP_35 += 1.0
+            TP_3 = 0
+            for m in range(len(iou)):
+                if (iou[m] > 0.4):
+                    TP_3 += 1.0
+
+            TP_25 = 0
+            for m in range(len(iou)):
+                if (iou[m] > 0.25):
+                    TP_25 += 1.0
+
+            accuracy_frame_5 = TP_5 / float(max(1.0, float(len(iou))))
+            recall_frame_5 = TP_5 / float(len(corners_GT_orig[i]))
+
+            accuracy_frame_4 = TP_4 / float(max(1.0, float(len(iou))))
+            recall_frame_4 = TP_4 / float(len(corners_GT_orig[i]))
+
+            accuracy_frame_35 = TP_35 / float(max(1.0, float(len(iou))))
+            recall_frame_35 = TP_35 / float(len(corners_GT_orig[i]))
+
+            accuracy_frame_3 = TP_3 / float(max(1.0, float(len(iou))))
+            recall_frame_3 = TP_3 / float(len(corners_GT_orig[i]))
+
+            accuracy_frame_25 = TP_25 / float(max(1.0, float(len(iou))))
+            recall_frame_25 = TP_25 / float(len(corners_GT_orig[i]))
+
+            accuracy_5 += accuracy_frame_5
+            recall_5 += recall_frame_5
+            accuracy_4 += accuracy_frame_4
+            recall_4 += recall_frame_4
+            accuracy_35 += accuracy_frame_35
+            recall_35 += recall_frame_35
+            accuracy_3 += accuracy_frame_3
+            recall_3 += recall_frame_3
+            accuracy_25 += accuracy_frame_25
+            recall_25 += recall_frame_25
+
+        # iou_3d_frame.append(iou_3d_prov)
+
+    print("accuracy_5", accuracy_5 / max(len(corners_frame), 1))
+    print("recall_5", recall_5 / max(len(corners_GT_orig), 1))
+    print("accuracy_4", accuracy_4 / max(len(corners_frame), 1))
+    print("recall_4", recall_4 / max(len(corners_GT_orig), 1))
+    print("accuracy_35", accuracy_35 / max(len(corners_frame), 1))
+    print("recall_35", recall_35 / max(len(corners_GT_orig), 1))
+    print("accuracy_3", accuracy_3 / max(len(corners_frame), 1))
+    print("recall_3", recall_3 / max(len(corners_GT_orig), 1))
+    print("accuracy_25", accuracy_25 / max(len(corners_frame), 1))
+    print("recall_25", recall_25 / max(len(corners_GT_orig), 1))
+
+
+def write_detection_results_test(result_dir, id_list, center_list, \
+                                 heading_cls_list, heading_res_list, \
+                                 size_cls_list, size_res_list, \
+                                 rot_angle_list, segp_list,score_list, split):
+    ''' Write frustum pointnets results to KITTI format label files. '''
+    result_dir = OUTPUT_FILE + split
+    if result_dir is None: return
+    results = {}  # map from idx to list of strings, each string is a line (without \n)
+
+    for i in range(len(segp_list)):
+        if np.count_nonzero(segp_list[i] == 1) < 5:
+            continue
+        idx = id_list[i]
+
+        output_str = "Pedestrian -1 -1 -10 "
+        output_str += "0.0 0.0 0.0 0.0 "
+        h, w, l, tx, ty, tz, ry = provider.from_prediction_to_label_format(center_list[i],
+                                                                           heading_cls_list[i], heading_res_list[i],
+                                                                           size_cls_list[i], size_res_list[i], 0.0)
+        output_str += "%f %f %f %f %f %f %f %f" % (h, w, l, tx, ty, tz, ry, score_list[i])
+        if idx not in results: results[idx] = []
+        results[idx].append(output_str)
+
+    # Write TXT files
+    if not os.path.exists(result_dir): os.mkdir(result_dir)
+    output_dir = os.path.join(result_dir, 'data')
+
+    if not os.path.exists(output_dir): os.mkdir(output_dir)
+    for idx in results:
+        pred_filename = os.path.join(output_dir, '%06d.txt' % (idx))
+        print(pred_filename)
+        fout = open(pred_filename, 'w')
+        for line in results[idx]:
+            fout.write(line + '\n')
+        fout.close()
 if __name__ == "__main__":
     log_string('pid: %s'%(str(os.getpid())))
     train()

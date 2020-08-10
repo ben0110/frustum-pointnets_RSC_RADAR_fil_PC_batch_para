@@ -416,8 +416,8 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
             bin_pc, bin_feat, centers, size, trans = get_bins_in_RRoI(object_pc_list[i], object_feats_list[i],
                                                                       radar_rois_list[i])
 
-            #AB_pc, AB_feat, AB_corners = iterative_method(bin_pc, bin_feat, centers, size, radar_rois_list[i][6], trans)
-            AB_pc, AB_feat, AB_corners =local_min_method(bin_pc, bin_feat, centers, size, radar_rois_list[i][6], trans)
+            AB_pc, AB_feat, AB_corners = iterative_method(bin_pc, bin_feat, centers, size, radar_rois_list[i][6], trans)
+            #AB_pc, AB_feat, AB_corners =local_min_method(bin_pc, bin_feat, centers, size, radar_rois_list[i][6], trans)
             #AB_pc_batches[6000] = 0
 
             AB_pc_batches_=np.concatenate((AB_pc_batches_,AB_pc))
