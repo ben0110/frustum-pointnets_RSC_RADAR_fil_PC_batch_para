@@ -210,9 +210,9 @@ def train():
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
              
-            train_one_epoch(sess, ops, train_writer,TRAIN_DATASET)
-            eval_one_epoch(sess, ops, eval_writer,EVAL_DATASET,"KITTI","split")
-            eval_one_epoch(sess,ops,test_writer,TEST_DATASET,"KITTI_2","train")
+            train_one_epoch(sess, ops, train_writer)
+            eval_one_epoch(sess, ops, eval_writer,EVAL_DATASET,"KITTI","val")
+            eval_one_epoch(sess,ops,test_writer,TEST_DATASET,"KITTI_2","test")
             # Save the variables to disk.
             if epoch % 10 == 0:
                 save_path = saver.save(sess, os.path.join(LOG_DIR,"ckpt" ,"model_"+str(epoch)+".ckpt"))
@@ -361,7 +361,7 @@ def eval_one_epoch(sess, ops,test_writer, dataset, database, split):
         summary, step, _, loss_val, iou2ds, iou3ds, box_pred_nbr, centers_pred_val, heading_scores, heading_residuals, size_scores, size_residuals = \
             sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'],
                       ops['end_points']['iou2ds'], ops['end_points']['iou3ds'], ops['end_points']['box_pred_nbr'],
-                      ops['centers_pred'], ops['end_points']['heading_scores'], ops['end_points']['heading_residuals'], \
+                      ops['end_points']['center'], ops['end_points']['heading_scores'], ops['end_points']['heading_residuals'], \
                       ops['end_points']['size_scores'], ops['end_points']['size_residuals']],
                      feed_dict=feed_dict)
 
@@ -685,9 +685,9 @@ def write_detection_results_test(result_dir, id_list, center_list, \
     if result_dir is None: return
     results = {}  # map from idx to list of strings, each string is a line (without \n)
 
-    for i in range(len(segp_list)):
-        if np.count_nonzero(segp_list[i] == 1) < 5:
-            continue
+    for i in range(len(center_list)):
+        """if np.count_nonzero(segp_list[i] == 1) < 5:
+            continue"""
         idx = id_list[i]
 
         output_str = "Pedestrian -1 -1 -10 "
