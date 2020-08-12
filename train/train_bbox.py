@@ -401,11 +401,11 @@ def eval_one_epoch(sess, ops,test_writer, dataset, database, split):
             size_residual_GT.append(batch_sres[i])
             # batch_mask_list.append(batch_mask[i])
 
-    log_string('eval mean loss: %f' % (loss_sum / float(num_batches)))
-    log_string('eval box IoU (ground/3D): %f / %f' % \
+    log_string(split+' mean loss: %f' % (loss_sum / float(num_batches)))
+    log_string(split+' box IoU (ground/3D): %f / %f' % \
                (iou2ds_sum / max(float(box_pred_nbr_sum), 1.0), iou3ds_sum / \
                 max(float(box_pred_nbr_sum), 1.0)))
-    log_string('eval box estimation accuracy (IoU=0.5): %f' % \
+    log_string(split+' box estimation accuracy (IoU=0.5): %f' % \
                (float(iou3d_correct_cnt) / max(float(box_pred_nbr_sum), 1.0)))
 
     EPOCH_CNT += 1
@@ -415,13 +415,15 @@ def eval_one_epoch(sess, ops,test_writer, dataset, database, split):
                                                         size_res_list, size_cls_list, heading_res_list,
                                                         heading_cls_list, center_list)
 
-    eval_per_frame(dataset.id_list, dataset.indice_box, GT_box_list,
+    accuracy,recall=eval_per_frame(dataset.id_list, dataset.indice_box, GT_box_list,
                    pred_box_list, IOU3d, score_list, database, split)
 
     write_detection_results_test("", dataset.id_list,
                                  center_list,
                                  heading_cls_list, heading_res_list,
                                  size_cls_list, size_res_list, rot_angle_list, segp_list,score_list, split)
+    log_string( split + ' accuracy(0.5): %f' % accuracy)
+    log_string( split + ' reca(0.5): %f' % recall)
 
 
 def compare_box_iou(id_list, size_residual_GT, size_class_GT, heading_res_GT, heading_class_GT, center_GT,
@@ -512,9 +514,9 @@ def eval_per_frame(id_list, indice_box_list, GT_box_list, pred_box_list, IOU3d, 
     #print("****************************************************************")
     #print(len(id_list_frame), len(id_list_GT))
     #print(id_list_frame[len(id_list_frame) - 1], id_list_GT[len(id_list_GT) - 1])
-    precision_recall(id_list_frame, pred_box_frame, corners_GT_frame, score_frame, IoU_frame, indice_box_frame,
+    accuracy,recall= precision_recall(id_list_frame, pred_box_frame, corners_GT_frame, score_frame, IoU_frame, indice_box_frame,
                      id_list_GT)
-
+    return accuracy,recall
 
 def NMS_unique(iou, corners_unique, scores_unique):
     ind_sort = np.argsort([x for x in scores_unique])
@@ -674,7 +676,7 @@ def precision_recall(id_list_frame, corners_frame, corners_GT_frame, scores, iou
     print("recall_3", recall_3 / max(len(corners_GT_orig), 1))
     print("accuracy_25", accuracy_25 / max(len(corners_frame), 1))
     print("recall_25", recall_25 / max(len(corners_GT_orig), 1))
-
+    return accuracy_5,recall_5
 
 def write_detection_results_test(result_dir, id_list, center_list, \
                                  heading_cls_list, heading_res_list, \
