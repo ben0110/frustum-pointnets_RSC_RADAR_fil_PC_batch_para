@@ -1643,7 +1643,7 @@ class RadarDataset_bbox(object):
                                                  gt_boxes3d[m][5]])
                                             self.heading_list.append(gt_boxes3d[m][6])
 
-                                            self.batch_list.append(self.ids[i])
+                                            self.batch_list.append(self.ids[i][0])
                                             self.indice_box.append(m)
 
                                     else:
@@ -1654,7 +1654,7 @@ class RadarDataset_bbox(object):
                                         self.AB_list.append(AB_corners[k])
                                         self.size_list.append([gt_boxes3d[m][3], gt_boxes3d[m][4], gt_boxes3d[m][5]])
                                         self.heading_list.append(gt_boxes3d[m][6])
-                                        self.batch_list.append(self.ids[i])
+                                        self.batch_list.append(self.ids[i][0])
                                         self.indice_box.append(m)
                                 elif iou_3d == 0.0 and (split == 'val' or split == 'test'):
                                     self.AB.append(AB_pc[k])
@@ -1671,7 +1671,7 @@ class RadarDataset_bbox(object):
 
                                     self.size_list.append(size)
                                     self.heading_list.append(0.0)
-                                    self.batch_list.append(self.ids[i])
+                                    self.batch_list.append(self.ids[i][0])
                                     self.indice_box.append(10)
 
                                 # self.rot_angle.append(RoI_boxes_3d[j][6])
