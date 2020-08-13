@@ -1586,8 +1586,8 @@ class RadarDataset_bbox(object):
                     if (float(np.count_nonzero(
                             cls_label == 1)) > 50 and split == "train") or split == "val" or split == "test":
                         bin_pc, centers, size, trans = get_bins_in_RRoI(pc_fil, RoI_boxes_3d[j])
-                        AB_pc, AB_corners = local_min_method(bin_pc, centers, size, RoI_boxes_3d[j][6], trans)
-                        # AB_pc, AB_corners = iterative_method(bin_pc, centers, size, RoI_boxes_3d[j][6], trans)
+                        #AB_pc, AB_corners = local_min_method(bin_pc, centers, size, RoI_boxes_3d[j][6], trans)
+                        AB_pc, AB_corners = iterative_method(bin_pc, centers, size, RoI_boxes_3d[j][6], trans)
 
                         """fig = mlab.figure(figure=None, bgcolor=(0.4, 0.4, 0.4), fgcolor=None, engine=None,
                                           size=(1000, 500))
