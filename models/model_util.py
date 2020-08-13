@@ -180,7 +180,8 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
         ds = 0
         boxes_1 = get_3d_box((h, w, l), 0.0, center)
         fg_pt_flag_1 = kitti_utils.in_hull(pc[:, 0:3], boxes_1)
-        if (np.count_nonzero(fg_pt_flag_1 == 1) > 0):
+        print("fg_pt_flag_1",np.count_nonzero(fg_pt_flag_1 == 1))
+        if (np.count_nonzero(fg_pt_flag_1 == 1) > 2):
             pc_1 = pc[fg_pt_flag_1, :]
             bin_pc.append(pc_1)
             feat1 = pc_feat[fg_pt_flag_1, :]
@@ -192,14 +193,17 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
             centers.append(center)
         size = [h, w, l]
 
-        while center_2[0] < max[0]:
+        while center_2[0] < max[0] and len(pc)>2 :
+
             center_1 = [center_1[0] - 1.0 / 8.0, center_1[1], center_1[2]]
             center_2 = [center_2[0] + 1.0 / 8.0, center_2[1], center_2[2]]
             boxes_1 = get_3d_box((h, w, l), 0.0, center_1)
             boxes_2 = get_3d_box((h, w, l), 0.0, center_2)
             fg_pt_flag_1 = kitti_utils.in_hull(pc[:, 0:3], boxes_1)
+            print("fg_pt_flag_1", np.count_nonzero(fg_pt_flag_1 == 1))
             fg_pt_flag_2 = kitti_utils.in_hull(pc[:, 0:3], boxes_2)
-            if np.count_nonzero(fg_pt_flag_1 == 1) > 0:
+            print("fg_pt_flag_2", np.count_nonzero(fg_pt_flag_2 == 1))
+            if np.count_nonzero(fg_pt_flag_1 == 1) > 1:
                 pc_1 = pc[fg_pt_flag_1, :]
                 bin_pc.append(pc_1)
                 feat1 = pc_feat[fg_pt_flag_1, :]
@@ -210,7 +214,7 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
                 bin_feat.append(np.array([]))
                 centers.append(center_1)
 
-            if np.count_nonzero(fg_pt_flag_2 == 1) > 0:
+            if np.count_nonzero(fg_pt_flag_2 == 1) > 1:
                 pc_2 = pc[fg_pt_flag_2, :]
                 bin_pc.insert(0, pc_2)
                 feat2 = pc_feat[fg_pt_flag_2, :]
@@ -223,73 +227,79 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
             fg_pt_flag = np.logical_or(fg_pt_flag_1, fg_pt_flag_2)
             pc = pc[~fg_pt_flag, :]
             pc_feat = pc_feat[~fg_pt_flag, :]
+        print("bin_pc in bins",len(bin_pc))
         return bin_pc, bin_feat, centers, size, trans
 
     def local_min_method(bin_pc,bin_feat, centers, size, radar_angle, trans):
-        bin_y_max = []
-        for i in range(len(bin_pc)):
-            if (bin_pc[i].size == 0):
-                bin_y_max.append(centers[i][1] + size[0] / 2)
-            else:
-                bin_y_max.append(np.min(bin_pc[i][:, 1]))
+        if(len(bin_pc)>2):
+            bin_y_max = []
+            for i in range(len(bin_pc)):
+                if (bin_pc[i].size == 0):
+                    bin_y_max.append(centers[i][1] + size[0] / 2)
+                else:
+                    bin_y_max.append(np.min(bin_pc[i][:, 1]))
 
-        minimum = []
-        if bin_y_max[0] < bin_y_max[1]:
-            minimum.append(1)
-        else:
-            minimum.append(-1)
-        for m in range(1, len(bin_y_max) - 1):
-            if bin_y_max[m] < bin_y_max[m - 1] and bin_y_max[m] < bin_y_max[m + 1]:
+            minimum = []
+            if bin_y_max[0] < bin_y_max[1]:
                 minimum.append(1)
-            elif bin_y_max[m] > bin_y_max[m - 1] and bin_y_max[m] > bin_y_max[m + 1]:
-                minimum.append(-1)
             else:
-                minimum.append(0)
-        if bin_y_max[len(bin_y_max) - 1] < bin_y_max[len(bin_y_max) - 1]:
-            minimum.append(1)
-        else:
-            minimum.append(-1)
-        print(minimum)
-        local_min_indices = np.argwhere(np.array(minimum) == -1)
-        pc_AB_list = np.empty([0, 512, 3])
-        feat_AB_list = np.empty([0, 512, 128])
-        corners_AB = np.empty([0, 8, 3])
-        for n in range(len(local_min_indices)):
-            pc_AB = np.empty([0, 3])
-            feat_AB = np.empty([0, 128])
-            for m in range(n + 1, len(local_min_indices)):
-                for o in range(local_min_indices[n][0], local_min_indices[m][0]):
-                    if (bin_pc[o].size != 0):
-                        pc_AB = np.concatenate((pc_AB, bin_pc[o]))
-                        feat_AB = np.concatenate((feat_AB, bin_feat[o]))
-                print("pc_AB_list:", len(pc_AB_list))
-                if (len(pc_AB) > 0):
-                    min = np.array([np.min(pc_AB[:, 0]), np.min(pc_AB[:, 1]), np.min(pc_AB[:, 2])])
-                    max = np.array([np.max(pc_AB[:, 0]), np.max(pc_AB[:, 1]), np.max(pc_AB[:, 2])])
-                    corners = corneers_from_minmax(min, max)
-                    center = (min + max) / 2.0
+                minimum.append(-1)
+            for m in range(1, len(bin_y_max) - 1):
+                if bin_y_max[m] < bin_y_max[m - 1] and bin_y_max[m] < bin_y_max[m + 1]:
+                    minimum.append(1)
+                elif bin_y_max[m] > bin_y_max[m - 1] and bin_y_max[m] > bin_y_max[m + 1]:
+                    minimum.append(-1)
+                else:
+                    minimum.append(0)
+            if bin_y_max[len(bin_y_max) - 1] < bin_y_max[len(bin_y_max) - 1]:
+                minimum.append(1)
+            else:
+                minimum.append(-1)
+            print(minimum)
+            local_min_indices = np.argwhere(np.array(minimum) == -1)
+            pc_AB_list = np.empty([0, 512, 3])
+            feat_AB_list = np.empty([0, 512, 128])
+            corners_AB = np.empty([0, 8, 3])
+            for n in range(len(local_min_indices)):
+                pc_AB = np.empty([0, 3])
+                feat_AB = np.empty([0, 128])
+                for m in range(n + 1, len(local_min_indices)):
+                    for o in range(local_min_indices[n][0], local_min_indices[m][0]):
+                        if (bin_pc[o].size != 0):
+                            pc_AB = np.concatenate((pc_AB, bin_pc[o]))
+                            feat_AB = np.concatenate((feat_AB, bin_feat[o]))
+                    print("pc_AB_list:", len(pc_AB_list))
+                    if (len(pc_AB) > 50):
+                        min = np.array([np.min(pc_AB[:, 0]), np.min(pc_AB[:, 1]), np.min(pc_AB[:, 2])])
+                        max = np.array([np.max(pc_AB[:, 0]), np.max(pc_AB[:, 1]), np.max(pc_AB[:, 2])])
+                        corners = corneers_from_minmax(min, max)
+                        center = (min + max) / 2.0
 
-                    corners = inverse_rotate_pc_along_y(corners, radar_angle)
-                    corners = corners + trans
-                    pc = inverse_rotate_pc_along_y(pc_AB, radar_angle)
-                    pc_ = pc + trans
-                    if len(pc_) > n_points_AB:
-                        choice = np.random.choice(len(pc_),
-                                                  n_points_AB, replace=False)
-                    else:
-                        choice = np.random.choice(len(pc_),
-                                                  n_points_AB - len(pc_), replace=True)
-                        choice = np.concatenate((np.arange(len(pc_)), choice))
-                    #print("len iter pc",len(pc_))
-                    #print("len iter feat", len(feat))
-                    pc_ = pc_[choice]
-                    feat = feat_AB[choice]
-                    pc_ = np.expand_dims(pc_, 0)
-                    feat = np.expand_dims(feat, 0)
-                    corners = np.expand_dims(corners, 0)
-                    corners_AB = np.concatenate((corners_AB, corners))
-                    pc_AB_list = np.concatenate((pc_AB_list, pc_))
-                    feat_AB_list = np.concatenate((feat_AB_list, feat))
+                        corners = inverse_rotate_pc_along_y(corners, radar_angle)
+                        corners = corners + trans
+                        pc = inverse_rotate_pc_along_y(pc_AB, radar_angle)
+                        pc_ = pc + trans
+                        if len(pc_) > n_points_AB:
+                            choice = np.random.choice(len(pc_),
+                                                      n_points_AB, replace=False)
+                        else:
+                            choice = np.random.choice(len(pc_),
+                                                      n_points_AB - len(pc_), replace=True)
+                            choice = np.concatenate((np.arange(len(pc_)), choice))
+                        #print("len iter pc",len(pc_))
+                        #print("len iter feat", len(feat))
+                        pc_ = pc_[choice]
+                        feat = feat_AB[choice]
+                        pc_ = np.expand_dims(pc_, 0)
+                        feat = np.expand_dims(feat, 0)
+                        corners = np.expand_dims(corners, 0)
+                        corners_AB = np.concatenate((corners_AB, corners))
+                        pc_AB_list = np.concatenate((pc_AB_list, pc_))
+                        feat_AB_list = np.concatenate((feat_AB_list, feat))
+        else:
+            pc_AB_list = np.empty([0, 512, 3])
+            feat_AB_list = np.empty([0, 512, 128])
+            corners_AB = np.empty([0, 8, 3])
 
         return pc_AB_list,feat_AB_list, corners_AB
 
@@ -419,7 +429,9 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
             AB_pc, AB_feat, AB_corners = iterative_method(bin_pc, bin_feat, centers, size, radar_rois_list[i][6], trans)
             #AB_pc, AB_feat, AB_corners =local_min_method(bin_pc, bin_feat, centers, size, radar_rois_list[i][6], trans)
             #AB_pc_batches[6000] = 0
-
+            print("AB_pc",AB_pc.shape)
+            print("AB_corners",AB_corners.shape)
+            print("AB_feat",AB_feat.shape)
             AB_pc_batches_=np.concatenate((AB_pc_batches_,AB_pc))
             AB_corners_batches_=np.concatenate((AB_corners_batches_,AB_corners))
             AB_feat_batches_=np.concatenate((AB_feat_batches_,AB_feat))
@@ -438,11 +450,13 @@ def extract_proposals(point_cloud_, pc_features_, mask_, radar_set_, radar_rois_
                                           n_AB * n_batches - nb_AB, replace=True)
                 choice = np.concatenate((np.arange(nb_AB), choice))
                 np.random.shuffle(choice)
-
+            print("choice",choice)
             AB_pc_batches = np.float32(AB_pc_batches_[choice,...])
             AB_corners_batches = np.float32(AB_corners_batches_[choice,...])
             AB_feat_batches = np.float32(AB_feat_batches_[choice,...])
             ids_prop = np.int32(ids_prop_[choice])
+        print("AB_pc_batches",AB_pc_batches.shape)
+        print("AB_corners_batches",AB_corners_batches.shape)
 
         return AB_pc_batches, AB_corners_batches, AB_feat_batches, ids_prop
 
