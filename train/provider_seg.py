@@ -1244,55 +1244,6 @@ class RadarDataset_bbox_CLS(object):
                                 self.indice_box.append(n)
 
                 elif(split == "val" or split == "test"):
-                    """if np.count_nonzero(np.argmax(NMS_cls_frame, 1) == 1) > 1:
-                        pos_indices = np.argwhere(np.argmax(NMS_cls_frame, 1) == 1)
-                        #print(pos_indices.reshape(-1))
-                        pos_indices = pos_indices.reshape(-1)
-                        bboxes=np.asarray(bboxes)
-                        gt_list= np.asarray(gt_list)
-                        bboxes = bboxes[pos_indices]
-                        gt_list= gt_list[pos_indices]
-                        for n in range(len(bboxes)):
-                            if gt_list[n] != 10:
-                                pc = self.segp_list[i][:, 0:3]
-                                cls_label_gt = np.zeros(len(pc))
-                                fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
-                                cls_label_gt[fg_pt_flag] = 1
-                                indices = np.argwhere(cls_label_gt == 1)
-                                AB_pc = pc[indices.reshape(-1)]
-                                self.AB.append(AB_pc)
-                                self.type_list.append("Pedestrian")
-                                self.box3d_list.append(gt_corners[gt_list[n]])
-                                self.AB_list.append(bboxes[n])
-                                self.size_list.append([gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4],
-                                                       gt_boxes3d[gt_list[n]][5]])
-                                self.heading_list.append(gt_boxes3d[gt_list[n]][6])
-                                self.batch_list.append(self.ids[i])
-                                self.indice_box.append(n)
-                            else:
-                                pc = self.segp_list[i][:, 0:3]
-                                cls_label_gt = np.zeros(len(pc))
-                                fg_pt_flag = kitti_utils.in_hull(pc[:, 0:3], bboxes[n])
-                                cls_label_gt[fg_pt_flag] = 1
-                                indices = np.argwhere(cls_label_gt == 1)
-                                AB_pc = pc[indices.reshape(-1)]
-                                box3d_center = np.random.rand(3) * (-10.0)
-                                size = np.ones((3))
-                                box3d = np.array(
-                                    [[box3d_center[0], box3d_center[1], box3d_center[2], size[0], size[1],
-                                      size[2], 0.0]])
-                                corners_empty = kitti_utils.boxes3d_to_corners3d(box3d, transform=False)
-                                self.AB.append(AB_pc)
-                                self.type_list.append("Pedestrian")
-                                self.box3d_list.append(corners_empty[0])
-                                self.AB_list.append(bboxes[n])
-
-                                self.size_list.append(size)
-                                self.heading_list.append(0.0)
-                                self.batch_list.append(self.ids[i])
-                                self.indice_box.append(n)
-
-                    else:"""
                     if len(NMS_cls_frame) < 5:
                         for n in range(len(gt_list)):
                             if gt_list[n] != 10:
@@ -1384,113 +1335,6 @@ class RadarDataset_bbox_CLS(object):
         time.sleep(10)
         print(np.unique(self.id_list))
 
-
-        """for k in range(gt_boxes3d.shape[0]):
-                box_corners = gt_corners[k]
-                fg_pt_flag = kitti_utils.in_hull(pc_seg[:, 0:3], box_corners)
-                cls_label[fg_pt_flag] = 1
-
-            radar_mask, radar_mask_list, RoI_boxes_3d = get_radar_pc_mask(pc_seg, pc_radar)
-            zs = 0
-            for j in range(len(radar_mask_list)):
-
-                if np.count_nonzero(radar_mask_list[j] == 1) < 10:
-                    print("no pc extracted", self.ids[i])
-                    continue
-                else:
-                    print("radar_mask_list", np.count_nonzero(radar_mask_list[j] == 1))
-                    radar_idx = np.argwhere(radar_mask_list[j] == 1)
-                    pc_fil = pc_seg[radar_idx.reshape(-1)]
-                    print(len(pc_seg))
-                    pc_fil = pc_fil[:, 0:3]
-                    print(len(pc_fil))
-                    gt_obj_list = self.dataset_kitti.filtrate_objects(
-                        self.dataset_kitti.get_label(self.ids[i]))
-                    gt_boxes3d = kitti_utils.objs_to_boxes3d(gt_obj_list)
-                    gt_corners = kitti_utils.boxes3d_to_corners3d(gt_boxes3d, transform=False)
-                    cls_label = np.zeros((pc_fil.shape[0]), dtype=np.int32)
-                    for k in range(gt_boxes3d.shape[0]):
-                        box_corners = gt_corners[k]
-                        fg_pt_flag = kitti_utils.in_hull(pc_fil[:, 0:3], box_corners)
-                        cls_label[fg_pt_flag] = 1
-
-                    if (float(np.count_nonzero(
-                            cls_label == 1)) > 50 and split == "train") or split == "val" or split == "test":
-                        bin_pc, centers, size, trans = get_bins_in_RRoI(pc_fil, RoI_boxes_3d[j])
-                        AB_pc, AB_corners = local_min_method(bin_pc, centers, size, RoI_boxes_3d[j][6], trans)
-                        #AB_pc, AB_corners = iterative_method(bin_pc, centers, size, RoI_boxes_3d[j][6], trans)
-
-                        fig = mlab.figure(figure=None, bgcolor=(0.4, 0.4, 0.4), fgcolor=None, engine=None,
-                                          size=(1000, 500))
-                        mlab.points3d(pc_fil[:, 0], pc_fil[:, 1], pc_fil[:, 2], cls_label, mode='point',
-                                      colormap='gnuplot', scale_factor=1,
-                                      figure=fig)
-                        mlab.points3d(0, 0, 0, color=(1, 1, 1), mode='sphere', scale_factor=0.2, figure=fig)
-                        draw_gt_boxes3d(gt_corners, fig, color=(1, 0, 0))
-                        draw_gt_boxes3d(AB_corners, fig, color=(0, 0, 1))
-                        mlab.orientation_axes()
-                        raw_input()
-
-                        for k in range(len(AB_corners)):
-                            for m in range(len(gt_corners)):
-                                #print("corners AB", AB_corners[k])
-                                #print("gt_corners[m]", gt_corners[m])
-                                if len(np.unique(AB_corners[k][:, 0])) == 1:
-                                    continue
-                                iou_3d, iou_2d = box3d_iou(AB_corners[k], gt_corners[m])
-                                print(iou_3d)
-                                if iou_3d > 0.3:
-                                fig = mlab.figure(figure=None, bgcolor=(0.4, 0.4, 0.4), fgcolor=None, engine=None,
-                                                      size=(1000, 500))
-                                    mlab.points3d(AB_pc[k][:, 0], AB_pc[k][:, 1], AB_pc[k][:, 2], mode='point',
-                                                  colormap='gnuplot', scale_factor=1,
-                                                  figure=fig)
-                                    mlab.points3d(0, 0, 0, color=(1, 1, 1), mode='sphere', scale_factor=0.2, figure=fig)
-                                    draw_gt_boxes3d([gt_corners[m]], fig, color=(1, 0, 0))
-                                    draw_gt_boxes3d([AB_corners[k]], fig, color=(0, 0, 1))
-                                    mlab.orientation_axes()
-                                    raw_input()
-                                    print("oohra")
-                                    self.AB.append(AB_pc[k])
-                                    self.type_list.append("Pedestrian")
-                                    self.box3d_list.append(gt_corners[m])
-                                    self.AB_list.append(AB_corners[k])
-                                    self.size_list.append([gt_boxes3d[m][3], gt_boxes3d[m][4], gt_boxes3d[m][5]])
-                                    self.heading_list.append(gt_boxes3d[m][6])
-                                    self.batch_list.append(self.ids[i])
-                                    self.indice_box.append(m)
-
-
-                                elif iou_3d > 0.0 and iou_3d < 0.5 and (split == 'val' or split == 'test'):
-
-                                    self.AB.append(AB_pc[k])
-                                    self.type_list.append("Pedestrian")
-                                    self.box3d_list.append(gt_corners[m])
-                                    self.AB_list.append(AB_corners[k])
-                                    self.size_list.append([gt_boxes3d[m][3], gt_boxes3d[m][4], gt_boxes3d[m][5]])
-                                    self.heading_list.append(gt_boxes3d[m][6])
-                                    self.batch_list.append(self.ids[i])
-                                    self.indice_box.append(m)
-                                elif iou_3d==0.0 and (split == 'val' or split == 'test'):
-                                    self.AB.append(AB_pc[k])
-                                    self.type_list.append("Pedestrian")
-                                    self.box3d_list.append(gt_corners[m])
-                                    self.AB_list.append(AB_corners[k])
-                                    self.size_list.append([gt_boxes3d[m][3], gt_boxes3d[m][4], gt_boxes3d[m][5]])
-                                    self.heading_list.append(gt_boxes3d[m][6])
-                                    self.batch_list.append(self.ids[i])
-                                    self.indice_box.append(10)
-
-                                # self.rot_angle.append(RoI_boxes_3d[j][6])
-
-        self.id_list = self.batch_list
-        print(np.unique(self.id_list))
-
-        print("retained indices", len(np.unique(self.id_list)))
-        print("proposed frames", len(self.ids))
-        print(self.ids)
-        print(self.id_list)
-        print("zs",zs)"""
 
     def __len__(self):
         return len(self.id_list)
@@ -1671,7 +1515,7 @@ class RadarDataset_bbox(object):
         self.indice_box = []
 
         with open(
-                "/root/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/dataset/RSC/seg_rois_" + split + "_1.pickle",
+                "/root/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/dataset/RSC/seg_rois_" + split + "_seg_cls.pickle",
                 'rb') as fp:
             # u = pickle._Unpickler(fp)
             # u.encoding = 'latin1'
@@ -1764,7 +1608,7 @@ class RadarDataset_bbox(object):
                                     continue
                                 iou_3d, iou_2d = box3d_iou(AB_corners[k], gt_corners[m])
                                 print(iou_3d)
-                                if iou_3d > 0.3:
+                                if iou_3d > 0.0:
                                     """fig = mlab.figure(figure=None, bgcolor=(0.4, 0.4, 0.4), fgcolor=None, engine=None,
                                                       size=(1000, 500))
                                     mlab.points3d(AB_pc[k][:, 0], AB_pc[k][:, 1], AB_pc[k][:, 2], mode='point',
@@ -1775,34 +1619,58 @@ class RadarDataset_bbox(object):
                                     draw_gt_boxes3d([AB_corners[k]], fig, color=(0, 0, 1))
                                     mlab.orientation_axes()
                                     raw_input()"""
-                                    print("oohra")
-                                    self.AB.append(AB_pc[k])
-                                    self.type_list.append("Pedestrian")
-                                    self.box3d_list.append(gt_corners[m])
-                                    self.AB_list.append(AB_corners[k])
-                                    self.size_list.append([gt_boxes3d[m][3], gt_boxes3d[m][4], gt_boxes3d[m][5]])
-                                    self.heading_list.append(gt_boxes3d[m][6])
-                                    self.batch_list.append(self.ids[i])
-                                    self.indice_box.append(m)
+                                    if split=="train":
+                                        ab_bbox=AB_corners[k]
+                                        for l in range(5):
+                                            ab_bbox_ = expand_cordinates(ab_bbox, random.random() / 2,
+                                                                         random.random() / 2)
+                                            cls_label_gt = np.zeros(len(pc_fil))
+                                            fg_pt_flag = kitti_utils.in_hull(pc_fil[:, 0:3], ab_bbox_)
 
+                                            cls_label_gt[fg_pt_flag] = 1
+                                            indices = np.argwhere(cls_label_gt == 1)
+                                            indices_ = indices.reshape(-1)
+                                            if (len(indices_) == 0):
+                                                print("3asba")
+                                                continue
+                                            AB_pc = pc_fil[indices_]
+                                            self.AB.append(AB_pc)
+                                            self.type_list.append("Pedestrian")
+                                            self.box3d_list.append(gt_corners[m])
+                                            self.AB_list.append(ab_bbox_)
+                                            self.size_list.append(
+                                                [gt_boxes3d[m][3], gt_boxes3d[m][4],
+                                                 gt_boxes3d[m][5]])
+                                            self.heading_list.append(gt_boxes3d[m][6])
 
-                                elif iou_3d > 0.0 and iou_3d < 0.5 and (split == 'val' or split == 'test'):
+                                            self.batch_list.append(self.ids[i])
+                                            self.indice_box.append(m)
 
-                                    self.AB.append(AB_pc[k])
-                                    self.type_list.append("Pedestrian")
-                                    self.box3d_list.append(gt_corners[m])
-                                    self.AB_list.append(AB_corners[k])
-                                    self.size_list.append([gt_boxes3d[m][3], gt_boxes3d[m][4], gt_boxes3d[m][5]])
-                                    self.heading_list.append(gt_boxes3d[m][6])
-                                    self.batch_list.append(self.ids[i])
-                                    self.indice_box.append(m)
+                                    else:
+                                        print("oohra")
+                                        self.AB.append(AB_pc[k])
+                                        self.type_list.append("Pedestrian")
+                                        self.box3d_list.append(gt_corners[m])
+                                        self.AB_list.append(AB_corners[k])
+                                        self.size_list.append([gt_boxes3d[m][3], gt_boxes3d[m][4], gt_boxes3d[m][5]])
+                                        self.heading_list.append(gt_boxes3d[m][6])
+                                        self.batch_list.append(self.ids[i])
+                                        self.indice_box.append(m)
                                 elif iou_3d == 0.0 and (split == 'val' or split == 'test'):
                                     self.AB.append(AB_pc[k])
+                                    box3d_center = np.random.rand(3) * (-10.0)
+                                    size = np.ones((3))
+                                    box3d = np.array(
+                                        [[box3d_center[0], box3d_center[1], box3d_center[2], size[0], size[1],
+                                          size[2], 0.0]])
+                                    corners_empty = kitti_utils.boxes3d_to_corners3d(box3d, transform=False)
+
                                     self.type_list.append("Pedestrian")
-                                    self.box3d_list.append(gt_corners[m])
+                                    self.box3d_list.append(corners_empty[0])
                                     self.AB_list.append(AB_corners[k])
-                                    self.size_list.append([gt_boxes3d[m][3], gt_boxes3d[m][4], gt_boxes3d[m][5]])
-                                    self.heading_list.append(gt_boxes3d[m][6])
+
+                                    self.size_list.append(size)
+                                    self.heading_list.append(0.0)
                                     self.batch_list.append(self.ids[i])
                                     self.indice_box.append(10)
 

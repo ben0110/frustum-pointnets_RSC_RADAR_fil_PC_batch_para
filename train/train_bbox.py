@@ -75,10 +75,10 @@ BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
 
 # Load Frustum Datasets. Use default data paths.
-TRAIN_DATASET = provider.RadarDataset_bbox_CLS('pc_radar_2','KITTI',npoints=NUM_POINT, split='train',
+TRAIN_DATASET = provider.RadarDataset_bbox('pc_radar_2','KITTI',npoints=NUM_POINT, split='train',
     rotate_to_center=False, random_flip=False, random_shift=False, one_hot=True,all_batches = True,translate_radar_center=False,store_data=True,proposals_3=True ,no_color=True)
-EVAL_DATASET = provider.RadarDataset_bbox_CLS('pc_radar_2','KITTI',npoints=NUM_POINT, split='val',rotate_to_center=False, one_hot=True,all_batches = True, translate_radar_center=False, store_data=True, proposals_3 =True ,no_color=True)
-TEST_DATASET = provider.RadarDataset_bbox_CLS('pc_radar_2','KITTI_2',npoints=NUM_POINT, split='test',rotate_to_center=False, one_hot=True,all_batches = True, translate_radar_center=False, store_data=True, proposals_3 =True ,no_color=True)
+EVAL_DATASET = provider.RadarDataset_bbox('pc_radar_2','KITTI',npoints=NUM_POINT, split='val',rotate_to_center=False, one_hot=True,all_batches = True, translate_radar_center=False, store_data=True, proposals_3 =True ,no_color=True)
+TEST_DATASET = provider.RadarDataset_bbox('pc_radar_2','KITTI_2',npoints=NUM_POINT, split='test',rotate_to_center=False, one_hot=True,all_batches = True, translate_radar_center=False, store_data=True, proposals_3 =True ,no_color=True)
 
 def log_string(out_str):
     LOG_FOUT.write(out_str+'\n')
