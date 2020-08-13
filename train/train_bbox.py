@@ -676,6 +676,8 @@ def precision_recall(id_list_frame, corners_frame, corners_GT_frame, scores, iou
     print("recall_3", recall_3 / max(len(corners_GT_orig), 1))
     print("accuracy_25", accuracy_25 / max(len(corners_frame), 1))
     print("recall_25", recall_25 / max(len(corners_GT_orig), 1))
+
+    print("")
     return accuracy_5,recall_5
 
 def write_detection_results_test(result_dir, id_list, center_list, \
