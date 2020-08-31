@@ -122,6 +122,7 @@ def get_session_and_ops_bbox(model,batch_size, num_point):
         # Restore variables from disk.
         saver.restore(sess, MODEL_PATH_BBOX)
         ops = {'pointclouds_pl': pointclouds_pl,
+               'pointcloud_center_pl':pointcloud_center_pl,
                'one_hot_vec_pl': one_hot_vec_pl,
                'centers_pl': centers_pl,
                'heading_class_label_pl': heading_class_label_pl,
@@ -189,14 +190,16 @@ def inference_bbox(sess, ops, pc,batch_center_data, one_hot_vec, batch_size):
     scores = np.zeros((pc.shape[0],))  # 3D box score
 
     ep = ops['end_points']
+    print(num_batches)
     for i in range(num_batches):
+
         feed_dict = { \
             ops['pointclouds_pl']: pc[i * batch_size:(i + 1) * batch_size, ...],
-            ops['pointcloud_center_pl']: batch_center_data,
+            ops['pointcloud_center_pl']: batch_center_data[i * batch_size:(i + 1) * batch_size, ...],
             ops['one_hot_vec_pl']: one_hot_vec[i * batch_size:(i + 1) * batch_size, :],
             ops['is_training_pl']: False}
 
-        batch_logits, batch_centers, \
+        batch_centers, \
         batch_heading_scores, batch_heading_residuals, \
         batch_size_scores, batch_size_residuals = \
             sess.run([ops['center'],
@@ -204,7 +207,7 @@ def inference_bbox(sess, ops, pc,batch_center_data, one_hot_vec, batch_size):
                       ep['size_scores'], ep['size_residuals']],
                      feed_dict=feed_dict)
 
-        logits[i * batch_size:(i + 1) * batch_size, ...] = batch_logits
+
         centers[i * batch_size:(i + 1) * batch_size, ...] = batch_centers
         heading_logits[i * batch_size:(i + 1) * batch_size, ...] = batch_heading_scores
         heading_residuals[i * batch_size:(i + 1) * batch_size, ...] = batch_heading_residuals
@@ -212,13 +215,13 @@ def inference_bbox(sess, ops, pc,batch_center_data, one_hot_vec, batch_size):
         size_residuals[i * batch_size:(i + 1) * batch_size, ...] = batch_size_residuals
 
         # Compute scores
-        batch_seg_prob = softmax(batch_logits)[:, :, 1]  # BxN
-        batch_seg_mask = np.argmax(batch_logits, 2)  # BxN
-        mask_mean_prob = np.sum(batch_seg_prob * batch_seg_mask, 1)  # B,
-        mask_mean_prob = mask_mean_prob / np.sum(batch_seg_mask, 1)  # B,
+        #batch_seg_prob = softmax(batch_logits)[:, :, 1]  # BxN
+        #batch_seg_mask = np.argmax(batch_logits, 2)  # BxN
+        #mask_mean_prob = np.sum(batch_seg_prob * batch_seg_mask, 1)  # B,
+        #mask_mean_prob = mask_mean_prob / np.sum(batch_seg_mask, 1)  # B,
         heading_prob = np.max(softmax(batch_heading_scores), 1)  # B
         size_prob = np.max(softmax(batch_size_scores), 1)  # B,
-        batch_scores = np.log(mask_mean_prob) + np.log(heading_prob) + np.log(size_prob)
+        batch_scores =  np.log(heading_prob) + np.log(size_prob)
         scores[i * batch_size:(i + 1) * batch_size] = batch_scores
         # Finished computing scores
 
@@ -448,70 +451,72 @@ def test(output_filename, result_dir=None):
                       batch_one_hot_vec, batch_size=1)
         end_t_seg = time.time()
         print("time_seg",end_t_seg-start_t_seg)
+        print("TEST_DATASET.idx_batch[batch_idx]",TEST_DATASET.idx_batch[batch_idx])
         #AB_pc,AB_corners = extract_AB(batch_data,preds_val,batch_radar_mask_list,radar_rois_param)
         #BBOX_DATASET=provider.RADAR_dataset_seg_to_bbox(AB_pc,AB_corners,batch_idx,TEST_DATASET)
-        BBOX_DATASET = provider.RadarDataset_bbox(TEST_DATASET.idx_batch[batch_idx],'pc_radar_2', 'KITTI', npoints=NUM_POINT, split='val',
+        BBOX_DATASET = provider.RadarDataset_bbox(TEST_DATASET.idx_batch[batch_idx],'pc_radar_2', 'KITTI', npoints=512, split='val',
                                                   rotate_to_center=False, one_hot=True, all_batches=True,
                                                   translate_radar_center=False, store_data=True, proposals_3=True,
                                                   no_color=True)
-        test_idxs=  np.arange(0, len(BBOX_DATASET))
-        #print("len(AB_pc)",len(AB_pc))
-        print("test_idx_bbox",test_idxs)
+        if len(BBOX_DATASET)>0:
+            test_idxs=  np.arange(0, len(BBOX_DATASET))
+            #print("len(AB_pc)",len(AB_pc))
+            print("test_idx_bbox",test_idxs)
 
 
 
-        batch_data, batch_center_data, batch_one_hot_vec, batch_center, \
-        batch_hclass, batch_hres, \
-        batch_sclass, batch_sres = \
-            get_batch_bbox(BBOX_DATASET, test_idxs, 0, len(test_idxs),
-                           NUM_POINT, NUM_CHANNEL)
+            batch_data, batch_center_data, batch_one_hot_vec, batch_center, \
+            batch_hclass, batch_hres, \
+            batch_sclass, batch_sres = \
+                get_batch_bbox(BBOX_DATASET, test_idxs, 0, len(test_idxs),
+                               512, 3)
 
-        start_t_box=time.time()
-        batch_output, batch_center_pred, \
-        batch_hclass_pred, batch_hres_pred, \
-        batch_sclass_pred, batch_sres_pred, batch_scores = \
-            inference_bbox(sess_bbox, ops_bbox, batch_data,batch_center_data,
-                          batch_one_hot_vec, batch_size=1)
-        end_t_box = time.time()
-        t.append((end_t_seg - start_t_seg)+(end_t_box-start_t_box))
-        print("inference time: ", (end_t_seg - start_t_seg)+(end_t_box-start_t_box))
-        correct_cnt += np.sum(batch_output == batch_label)
+            start_t_box=time.time()
+            batch_output_, batch_center_pred, \
+            batch_hclass_pred, batch_hres_pred, \
+            batch_sclass_pred, batch_sres_pred, batch_scores = \
+                inference_bbox(sess_bbox, ops_bbox, batch_data,batch_center_data,
+                              batch_one_hot_vec, batch_size=1)
+            end_t_box = time.time()
+            t.append((end_t_seg - start_t_seg)+(end_t_box-start_t_box)+BBOX_DATASET.time)
+            print("inference time: ", (end_t_seg - start_t_seg)+(end_t_box-start_t_box))
+            #correct_cnt += np.sum(batch_output == batch_label)
 
-        iou2ds, iou3ds, box_pred_nbr = provider.compute_box3d_iou_batch_test1(batch_output, batch_center_pred,
-                                                                             batch_hclass_pred, batch_hres_pred,
-                                                                             batch_sclass_pred, batch_sres_pred,
-                                                                             batch_center,
-                                                                             batch_hclass, batch_hres,
-                                                                             batch_sclass, batch_sres)
-        for l in range(NUM_CLASSES):
-            total_seen_class[l] += np.sum(batch_label==l)
-            total_correct_class[l] += (np.sum((batch_output==l) & (batch_label==l)))
+            #iou2ds, iou3ds, box_pred_nbr = provider.compute_box3d_iou_batch_test1(batch_output, batch_center_pred,
+            #                                                                     batch_hclass_pred, batch_hres_pred,
+            #                                                                     batch_sclass_pred, batch_sres_pred,
+            #                                                                     batch_center,
+            #                                                                     batch_hclass, batch_hres,
+            #                                                                     batch_sclass, batch_sres)
+            #for l in range(NUM_CLASSES):
+            #    total_seen_class[l] += np.sum(batch_label==l)
+            #    total_correct_class[l] += (np.sum((batch_output==l) & (batch_label==l)))
 
-        iou2ds_sum += np.sum(iou2ds)
-        iou3ds_sum += np.sum(iou3ds)
-        iou3d_correct_cnt += np.sum(iou3ds >= 0.5)
-        box_pred_nbr_sum += box_pred_nbr
-        for i in range(batch_output.shape[0]):
-            ps_list.append(batch_data[i, ...])
-            seg_list.append(batch_label[i, ...])
-            segp_list.append(batch_output[i, ...])
-            center_list.append(batch_center_pred[i, :])
-            heading_cls_list.append(batch_hclass_pred[i])
-            heading_res_list.append(batch_hres_pred[i])
-            size_cls_list.append(batch_sclass_pred[i])
-            size_res_list.append(batch_sres_pred[i, :])
-            score_list.append(batch_scores[i])
-    print('box IoU (ground/3D): %f / %f' % \
+            """iou2ds_sum += np.sum(iou2ds)
+            iou3ds_sum += np.sum(iou3ds)
+            iou3d_correct_cnt += np.sum(iou3ds >= 0.5)
+            box_pred_nbr_sum += box_pred_nbr
+            for i in range(batch_output.shape[0]):
+                ps_list.append(batch_data[i, ...])
+                seg_list.append(batch_label[i, ...])
+                segp_list.append(batch_output[i, ...])
+                center_list.append(batch_center_pred[i, :])
+                heading_cls_list.append(batch_hclass_pred[i])
+                heading_res_list.append(batch_hres_pred[i])
+                size_cls_list.append(batch_sclass_pred[i])
+                size_res_list.append(batch_sres_pred[i, :])
+                score_list.append(batch_scores[i])"""
+    """print('box IoU (ground/3D): %f / %f' % \
           (iou2ds_sum / max(float(box_pred_nbr_sum), 1.0), iou3ds_sum / max(float(box_pred_nbr_sum), 1.0)))
     print('box estimation accuracy (IoU=0.5): %f' % \
           (float(iou3d_correct_cnt) / max(float(box_pred_nbr_sum), 1.0)))
     print("Segmentation accuracy: %f" % \
-          (correct_cnt / float(batch_size * num_batches * NUM_POINT)))
+          (correct_cnt / float(batch_size * num_batches * NUM_POINT)))"""
     print("average time", np.mean(t))
     print("not_found",not_found)
-    print('eval segmentation avg class acc: %f' % \
+    """print('eval segmentation avg class acc: %f' % \
         (np.mean(np.array(total_correct_class) / \
-            np.array(total_seen_class,dtype=np.float))))
+            np.array(total_seen_class,dtype=np.float))))"""
 
     # Write detection results for KITTI evaluation
     """ write_detection_results_test(result_dir, TEST_DATASET.id_list,
