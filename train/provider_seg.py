@@ -1720,7 +1720,7 @@ class RadarDataset_bbox(object):
     [optional] along with its annotations.
     '''
 
-    def __init__(self, radar_file, database, npoints, split,
+    def __init__(self,frame, radar_file, database, npoints, split,
                  random_flip=False, random_shift=False, rotate_to_center=False,
                  overwritten_data_path=None, from_rgb_detection=False, one_hot=False, all_batches=False,
                  translate_radar_center=False,
@@ -1789,7 +1789,10 @@ class RadarDataset_bbox(object):
         # print(self.segp_list)
         # self.segp_list=self.segp_list[4:5]
         # self.ids= self.ids[4:5]
-        for i in range(len(self.segp_list)):
+        index = np.argwhere(self.ids==frame)
+        index = index.reshape(-1)
+        #for i in range(len(self.segp_list[])):
+        for i in range(index[0],index[0]+1):
             print(self.ids[i])
             # print(self.segp_list[i])
             pc_radar = self.dataset_kitti.get_radar(self.ids[i])
@@ -1833,8 +1836,8 @@ class RadarDataset_bbox(object):
                     if (float(np.count_nonzero(
                             cls_label == 1)) > 50 and split == "train") or split == "val" or split == "test":
                         bin_pc, centers, size, trans = get_bins_in_RRoI(pc_fil, RoI_boxes_3d[j])
-                        AB_pc, AB_corners = local_min_method(bin_pc, centers, size, RoI_boxes_3d[j][6], trans)
-                        #AB_pc, AB_corners = iterative_method(bin_pc, centers, size, RoI_boxes_3d[j][6], trans)
+                        #AB_pc, AB_corners = local_min_method(bin_pc, centers, size, RoI_boxes_3d[j][6], trans)
+                        AB_pc, AB_corners = iterative_method(bin_pc, centers, size, RoI_boxes_3d[j][6], trans)
 
                         """fig = mlab.figure(figure=None, bgcolor=(0.4, 0.4, 0.4), fgcolor=None, engine=None,
                                           size=(1000, 500))
