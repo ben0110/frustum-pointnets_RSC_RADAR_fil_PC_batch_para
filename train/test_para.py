@@ -45,7 +45,8 @@ FLAGS = parser.parse_args()
 
 # Set training configurations
 BATCH_SIZE = FLAGS.batch_size
-MODEL_PATH = FLAGS.model_path
+MODEL_PATH_SEG =  ""
+MODEL_PATH_BBOX = "/root/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/train/log_v2/07-08-2020-17:47:49/ckpt/model_190.ckpt"
 GPU_INDEX = FLAGS.gpu
 NUM_POINT = FLAGS.num_point
 MODEL_SEG = importlib.import_module("frustum_pointnets_seg_v2")
@@ -84,7 +85,7 @@ def get_session_and_ops_seg(model,batch_size, num_point):
         sess = tf.Session(config=config)
 
         # Restore variables from disk.
-        saver.restore(sess, MODEL_PATH)
+        saver.restore(sess, MODEL_PATH_SEG)
         ops = {'pointclouds_pl': pointclouds_pl,
                'one_hot_vec_pl': one_hot_vec_pl,
                'labels_pl': labels_pl,
@@ -119,7 +120,7 @@ def get_session_and_ops_bbox(model,batch_size, num_point):
         sess = tf.Session(config=config)
 
         # Restore variables from disk.
-        saver.restore(sess, MODEL_PATH)
+        saver.restore(sess, MODEL_PATH_BBOX)
         ops = {'pointclouds_pl': pointclouds_pl,
                'one_hot_vec_pl': one_hot_vec_pl,
                'centers_pl': centers_pl,
