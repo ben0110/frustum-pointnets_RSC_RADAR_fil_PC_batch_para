@@ -448,10 +448,14 @@ def test(output_filename, result_dir=None):
                       batch_one_hot_vec, batch_size=1)
         end_t_seg = time.time()
         print("time_seg",end_t_seg-start_t_seg)
-        AB_pc,AB_corners = extract_AB(batch_data,preds_val,batch_radar_mask_list,radar_rois_param)
-        BBOX_DATASET=provider.RADAR_dataset_seg_to_bbox(AB_pc,AB_corners,batch_idx,TEST_DATASET)
+        #AB_pc,AB_corners = extract_AB(batch_data,preds_val,batch_radar_mask_list,radar_rois_param)
+        #BBOX_DATASET=provider.RADAR_dataset_seg_to_bbox(AB_pc,AB_corners,batch_idx,TEST_DATASET)
+        BBOX_DATASET = provider.RadarDataset_bbox(batch_idx,'pc_radar_2', 'KITTI', npoints=NUM_POINT, split='val',
+                                                  rotate_to_center=False, one_hot=True, all_batches=True,
+                                                  translate_radar_center=False, store_data=True, proposals_3=True,
+                                                  no_color=True)
         test_idxs=  np.arange(0, len(BBOX_DATASET))
-        print("len(AB_pc)",len(AB_pc))
+        #print("len(AB_pc)",len(AB_pc))
         print("test_idx_bbox",test_idxs)
 
 
