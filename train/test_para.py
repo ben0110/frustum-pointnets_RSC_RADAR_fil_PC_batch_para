@@ -45,7 +45,7 @@ FLAGS = parser.parse_args()
 
 # Set training configurations
 BATCH_SIZE = FLAGS.batch_size
-MODEL_PATH_SEG =  ""
+MODEL_PATH_SEG =  "/root/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/train/log_v2/01-08-2020-20:26:43/ckpt/model_70.ckpt"
 MODEL_PATH_BBOX = "/root/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/train/log_v2/07-08-2020-17:47:49/ckpt/model_190.ckpt"
 GPU_INDEX = FLAGS.gpu
 NUM_POINT = FLAGS.num_point
@@ -54,7 +54,7 @@ MODEL_BBOX = importlib.import_module("frustum_pointnets_bbox_v2")
 NUM_CLASSES = 2
 NUM_CHANNEL = 4
 
-pathsplit = MODEL_PATH.split('/')
+pathsplit = MODEL_PATH_BBOX.split('/')
 
 OUTPUT_FILE = os.path.join('/', pathsplit[1], pathsplit[2], pathsplit[3], pathsplit[4], pathsplit[5], 'results/')
 if not os.path.exists(OUTPUT_FILE):
