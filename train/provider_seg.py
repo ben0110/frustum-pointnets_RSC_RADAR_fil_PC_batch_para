@@ -1789,6 +1789,10 @@ class RadarDataset_bbox(object):
         # print(self.segp_list)
         # self.segp_list=self.segp_list[4:5]
         # self.ids= self.ids[4:5]
+        ids=[]
+        for i in range(len(self.ids)):
+            ids.append(int(self.ids[i][0]))
+        self.ids=ids
         index = np.argwhere(self.ids==frame)
         index = index.reshape(-1)
         #for i in range(len(self.segp_list[])):
