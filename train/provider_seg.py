@@ -10,6 +10,7 @@ from __future__ import print_function
 import sys
 import os
 import numpy as np
+import cv2
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import time
@@ -43,6 +44,189 @@ try:
     raw_input  # Python 2
 except NameError:
     raw_input = input  # Python 3
+
+class RADAR_dataset_seg_to_bbox(object):
+    def __init__(self,AB_pc,AB_corners,batch_idx,TEST_DATASET):
+
+        gt_obj_list=TEST_DATASET.dataset_kitti.get_label(batch_idx)
+        gt_boxes3d = kitti_utils.objs_to_boxes3d(gt_obj_list)
+        gt_corners = kitti_utils.boxes3d_to_corners3d(gt_boxes3d, transform=False)
+        self.one_hot=TEST_DATASET.one_hot
+
+        self.dataset=TEST_DATASET
+
+        self.AB=[]
+        self.type_list=[]
+        self.box3d_list=[]
+        self.AB_list=[]
+        self.size_list=[]
+        self.heading_list=[]
+        self.batch_list=[]
+        self.indice_box=[]
+
+        for k in range(len(AB_corners)):
+            for m in range(len(gt_corners)):
+                # print("corners AB", AB_corners[k])
+                # print("gt_corners[m]", gt_corners[m])
+                if len(np.unique(AB_corners[k][:, 0])) == 1:
+                    continue
+                iou_3d, iou_2d = box3d_iou(AB_corners[k], gt_corners[m])
+                print(iou_3d)
+                if iou_3d > 0.0:
+                    self.AB.append(AB_pc[k])
+                    self.type_list.append("Pedestrian")
+                    self.box3d_list.append(gt_corners[m])
+                    self.AB_list.append(AB_corners[k])
+                    self.size_list.append([gt_boxes3d[m][3], gt_boxes3d[m][4], gt_boxes3d[m][5]])
+                    self.heading_list.append(gt_boxes3d[m][6])
+                    self.batch_list.append(batch_idx)
+                    self.indice_box.append(m)
+                elif iou_3d == 0.0 :
+                    self.AB.append(AB_pc[k])
+                    box3d_center = np.random.rand(3) * (-10.0)
+                    size = np.ones((3))
+                    box3d = np.array(
+                        [[box3d_center[0], box3d_center[1], box3d_center[2], size[0], size[1],
+                          size[2], 0.0]])
+                    corners_empty = kitti_utils.boxes3d_to_corners3d(box3d, transform=False)
+
+                    self.type_list.append("Pedestrian")
+                    self.box3d_list.append(corners_empty[0])
+                    self.AB_list.append(AB_corners[k])
+
+                    self.size_list.append(size)
+                    self.heading_list.append(0.0)
+                    self.batch_list.append(batch_idx)
+                    self.indice_box.append(10)
+        self.id_list = self.batch_list
+    def __len__(self):
+        return len(self.id_list)
+
+    def __getitem__(self, index):
+        ''' Get index-th element from the picked file dataset. '''
+        # ------------------------------ INPUTS ----------------------------
+
+        # Compute one hot vector
+        # label_mask = self.batch_train[index]
+        # rot_angle = self.get_center_view_rot_angle(index)
+
+        # Compute one hot vector
+        if self.dataset.one_hot:
+            cls_type = self.type_list[index]
+            assert (cls_type in ['Car', 'Pedestrian', 'Cyclist'])
+            one_hot_vec = np.zeros((3))
+            one_hot_vec[g_type2onehotclass[cls_type]] = 1
+
+        # Get point cloud
+        if self.dataset.rotate_to_center:
+            point_set = self.get_center_view_point_set(index)
+        else:
+            point_set = self.AB[index]
+        # Resample
+        choice = np.random.choice(point_set.shape[0], 512, replace=True)
+        point_set = point_set[choice, :]
+
+        # ------------------------------ LABELS ----------------------------
+
+        if (self.dataset.no_color):
+            ret_pts_features = np.ones((len(point_set), 1))
+            point_set = np.concatenate((point_set[:, 0:3], ret_pts_features), axis=1)
+        point_set = point_set[:, 0:3]
+        pc_orig = point_set
+        # Get center point of 3D box
+        if self.dataset.rotate_to_center:
+            box3d_center = self.get_center_view_box3d_center(index)
+            proposal_center = self.get_center_view_proposal(index)
+
+        else:
+            box3d_center = self.get_box3d_center(index)
+            # proposal_center = self.radar_point_list[index]
+
+        if self.dataset.translate_to_radar_center:
+            box3d_center = box3d_center - proposal_center
+            point_set[:, 0] = point_set[:, 0] - proposal_center[0]
+            point_set[:, 1] = point_set[:, 1] - proposal_center[1]
+            point_set[:, 2] = point_set[:, 2] - proposal_center[2]
+        # Heading
+        if self.dataset.rotate_to_center:
+            heading_angle = self.heading_list[index] - rot_angle
+        else:
+            heading_angle = self.heading_list[index]
+
+        # Size
+        size_class, size_residual = size2class(self.size_list[index],
+                                               self.type_list[index])
+        # translate point cloud to mean center
+        center_mean = [np.mean(point_set[:, 0]), np.mean(point_set[:, 1]), np.mean(point_set[:, 2])]
+        point_set[:, 0] = point_set[:, 0] - center_mean[0]
+        point_set[:, 1] = point_set[:, 1] - center_mean[1]
+        point_set[:, 2] = point_set[:, 2] - center_mean[2]
+        # translate GT box to mean center
+        # box3d_center[0]=box3d_center[0]-center_mean[0]
+        # box3d_center[1] = box3d_center[1] - center_mean[1]
+        # box3d_center[2] = box3d_center[2] - center_mean[2]
+        # Data Augmentation
+        if self.dataset.random_flip:
+            # note: rot_angle won't be correct if we have random_flip
+            # so do not use it in case of random flipping.
+            if np.random.random() > 0.5:  # 50% chance flipping
+                point_set[:, 0] *= -1
+                box3d_center[0] *= -1
+                heading_angle = np.pi - heading_angle
+        if self.dataset.random_shift:
+            dist = np.sqrt(np.sum(box3d_center[0] ** 2 + box3d_center[1] ** 2))
+            shift = np.clip(np.random.randn() * dist * 0.05, dist * 0.8, dist * 1.2)
+            point_set[:, 2] += shift
+            box3d_center[2] += shift
+
+        angle_class, angle_residual = angle2class(heading_angle,
+                                                  NUM_HEADING_BIN)
+        # print("10 points",point_set[0:10])
+        if self.dataset.one_hot:
+            return point_set, center_mean, one_hot_vec, box3d_center, angle_class, angle_residual, \
+                   size_class, size_residual, self.AB_list[index]
+        else:
+            return point_set, center_mean, box3d_center, angle_class, angle_residual, \
+                   size_class, size_residual, self.AB_list[index]
+    def get_center_view_rot_angle(self, index):
+        ''' Get the frustum rotation angle, it isshifted by pi/2 so that it
+        can be directly used to adjust GT heading angle '''
+        return np.pi / 2.0 + self.frustum_angle_list[index]
+        # return self.frustum_angle_list[index]
+
+    def get_box3d_center(self, index):
+        ''' Get the center (XYZ) of 3D bounding box. '''
+        box3d_center = (self.box3d_list[index][0, :] + \
+                        self.box3d_list[index][6, :]) / 2.0
+        return box3d_center
+
+    def get_center_view_box3d_center(self, index):
+        ''' Frustum rotation of 3D bounding box center. '''
+        box3d_center = (self.box3d_list[index][0, :] + \
+                        self.box3d_list[index][6, :]) / 2.0
+        return rotate_pc_along_y(np.expand_dims(box3d_center, 0), \
+                                 self.get_center_view_rot_angle(index)).squeeze()
+
+    def get_center_view_proposal(self, index):
+        return rotate_pc_along_y(np.expand_dims(self.radar_point_list[index], 0), \
+                                 self.get_center_view_rot_angle(index)).squeeze()
+
+    def get_center_view_box3d(self, index):
+        ''' Frustum rotation of 3D bounding box corners. '''
+        box3d = self.box3d_list[index]
+        box3d_center_view = np.copy(box3d)
+        return rotate_pc_along_y(box3d_center_view, \
+                                 self.get_center_view_rot_angle(index))
+
+    def get_center_view_point_set(self, index):
+        ''' Frustum rotation of point clouds.
+        NxC points with first 3 channels as XYZ
+        z is facing forward, x is left ward, y is downward
+        '''
+        # Use np.copy to avoid corrupting original data
+        point_set = np.copy(self.input_list[index])
+        return rotate_pc_along_y(point_set, \
+                                 self.get_center_view_rot_angle(index))
 
 
 def rotate_pc_along_y(pc, rot_angle):
@@ -357,7 +541,7 @@ class RadarDataset_seg(object):
         '''
         self.no_color = no_color
         self.translate_to_radar_center = translate_radar_center
-        self.dataset_kitti = KittiDataset(radar_file, root_dir='/home/amben/frustum-pointnets_RSC/dataset/',
+        self.dataset_kitti = KittiDataset(radar_file, root_dir='/root/frustum-pointnets_RSC/dataset/',
                                           dataset=database,
                                           mode='TRAIN',
                                           split=split)
@@ -373,13 +557,13 @@ class RadarDataset_seg(object):
         else:
             box_number = 'one_boxes'
         if overwritten_data_path is None:
-            overwritten_data_path = os.path.join('/home/amben/frustum-pointnets_RSC_RADAR_fil_PC_batch/',
+            overwritten_data_path = os.path.join('/root/frustum-pointnets_RSC_RADAR_fil_PC_batch/',
                                                  'dataset/RSC/radar_' + box_number + ('_%s.pickle' % (split)))
         output_filename = overwritten_data_path
         self.from_rgb_detection = from_rgb_detection
 
         # list = os.listdir("/root/3D_BoundingBox_Annotation_Tool_3D_BAT/input/NuScenes/ONE/pointclouds_Radar")
-        self.id_list = self.dataset_kitti.sample_id_list
+        self.id_list = self.dataset_kitti.sample_id_list[0:10]
         self.idx_batch = self.id_list
         batch_list = []
         self.radar_OI = []
@@ -1079,7 +1263,58 @@ def expand_cordinates(corners,width_plus,length_plus):
     #print(width_plus,length_plus)
     #print(center,rotation,[height,width,length])
     return new_corners
+def corners3d_to_corners2d(corners3d):
+    corners2d = np.zeros((8 * 2), dtype=np.float32).reshape((8, 2))
+    for i in range(8):
+        corners2d[i, 0], corners2d[i, 1] = pcd_to_img(corners3d[i])
+    return corners2d
 
+
+def pcd_to_img(pt):
+    #point = np.array([-pt[1], -pt[2], pt[0]])  # 0=x 1=y z=2
+    point=pt
+    trans_matrix = np.array(
+        [[700.8319702148438, 0.0, 623.9869995117188, 0.0], [0.0, 700.8319702148438, 362.1520080566406, 0.0],
+         [0.0, 0.0, 1.0, 0.0]])
+    px = point[0] * trans_matrix[0][0] / point[2] + trans_matrix[0][2]
+    py = point[1] * trans_matrix[1][1] / point[2] + trans_matrix[1][2]
+    # print "coordinate:", py,px
+    return px-15, py
+def draw_3dboxes(image,corners3d,color):
+
+    for j in range(len(corners3d)):
+        corner3d = corners3d[j]
+        corner2d = corners3d_to_corners2d(corner3d)
+        #s = np.argsort(corners3d[0, :, 2])
+        #corners2d = corner2d[s]
+        print(corner2d)
+        for i in range(4):
+            point_1_ = corner2d[2 * i]
+            point_2_ = corner2d[2 * i + 1]
+            image = cv2.line(image, (point_1_[0], point_1_[1]), (point_2_[0], point_2_[1]), color, 2)
+        #center = (
+        #int((point_1_[0] + point_2_[0]) / 2), int((point_1_[1]+point_2_[1]) / 2))
+        #font = cv2.FONT_HERSHEY_SIMPLEX
+        #fontScale = 1
+        #thickness = 2
+        #img_k = cv2.putText(image, '%d' % i, center, font, fontScale, (0, 0, 255), thickness, cv2.LINE_AA)
+        # for i in range(4):
+        #    point_1_ = corner2d[2 * i + 1]
+        #    point_2_ = corner2d[(2*i +2) % 8]
+        #    print("2nd round", i,(i + 1) % 8)
+        #    image = cv2.line(image, (point_1_[0], point_1_[1]), (point_2_[0], point_2_[1]), (255, 0, 0), 1)
+
+        for i in range(4):
+            point_1_ = corner2d[i]
+            point_2_ = corner2d[i + 4]
+            image = cv2.line(image, (point_1_[0], point_1_[1]), (point_2_[0], point_2_[1]), color, 1)
+
+        for i in range(0, 5, 4):
+            for k in range(2):
+                point_1_ = corner2d[i + k]
+                point_2_ = corner2d[i + 3 - k]
+                image = cv2.line(image, (point_1_[0], point_1_[1]), (point_2_[0], point_2_[1]), color, 1)
+    return image
 class RadarDataset_bbox_CLS(object):
     ''' Dataset class for Frustum PointNets training/evaluation.
     Load prepared KITTI data from pickled files, return individual data element
@@ -1128,25 +1363,25 @@ class RadarDataset_bbox_CLS(object):
         self.indice_box = []
 
         with open(
-                "/root/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/dataset/RSC/seg_rois_" + split + "_seg_cls.pickle",
+                "/home/amben/frustum-pointnets_RSC_RADAR_fil_PC_batch_para/dataset/RSC/seg_rois_" + split + "_seg_cls_min_method.pickle",
                 'rb') as fp:
-            #u = pickle._Unpickler(fp)
-            #u.encoding = 'latin1'
+            u = pickle._Unpickler(fp)
+            u.encoding = 'latin1'
             # logits_roi = pickle.load(fp)
-            ids = pickle.load(fp)
-            self.segp_list = pickle.load(fp)
-            ab_boxes = pickle.load(fp)
-            ab_cls_list = pickle.load(fp)
-            self.ab_ids_list = pickle.load(fp)
-            #ids = u.load()
-            #self.segp_list = u.load()
-            #ab_boxes = u.load()
-            #ab_cls_list = u.load()
-            #self.ab_ids_list = u.load()
+            #ids = pickle.load(fp)
+            #self.segp_list = pickle.load(fp)
+            #ab_boxes = pickle.load(fp)
+            #ab_cls_list = pickle.load(fp)
+            #self.ab_ids_list = pickle.load(fp)
+            ids = u.load()
+            self.segp_list = u.load()
+            ab_boxes = u.load()
+            ab_cls_list = u.load()
+            self.ab_ids_list = u.load()
             #print(self.ids)
         recall=[]
         self.dataset_kitti = KittiDataset('pc_radar_2', dataset=database,
-                                          root_dir='/root/frustum-pointnets_RSC/dataset/',
+                                          root_dir='/home/amben/frustum-pointnets_RSC/dataset/',
                                           mode='TRAIN',
                                           split=split)
         self.ab_cls_list = np.zeros((len(ab_cls_list), 2))
@@ -1183,6 +1418,12 @@ class RadarDataset_bbox_CLS(object):
                     self.dataset_kitti.get_label(self.ids[i]))
                 gt_boxes3d = kitti_utils.objs_to_boxes3d(gt_obj_list)
                 gt_corners = kitti_utils.boxes3d_to_corners3d(gt_boxes3d, transform=False)
+                Image_file = "/media/xivt/DB/image_left_rect/" + "%06d.jpg" % self.ids[i]
+                image = cv2.imread(Image_file, cv2.IMREAD_COLOR)
+                image = cv2.blur(image, (5, 5))
+                image = draw_3dboxes(image, gt_corners, (255, 0, 0))
+                image = draw_3dboxes(image, ab_frame, (0, 0, 255))
+                cv2.imwrite("/media/xivt/proposals_cls/proposals_min_wo_nms/" + "%06d.jpg" % self.ids[i], image)
                 iou = []
                 gt_ids = []
                 for m in range(len(cls_frame)):
@@ -1239,11 +1480,17 @@ class RadarDataset_bbox_CLS(object):
                                 self.size_list.append(
                                     [gt_boxes3d[gt_list[n]][3], gt_boxes3d[gt_list[n]][4], gt_boxes3d[gt_list[n]][5]])
                                 self.heading_list.append(gt_boxes3d[gt_list[n]][6])
-
                                 self.batch_list.append(self.ids[i])
                                 self.indice_box.append(n)
 
                 elif(split == "val" or split == "test"):
+                    # print proposals on image in ordered way
+                    Image_file = "/media/xivt/DB/image_left_rect/" + "%06d.jpg" % self.ids[i]
+                    image = cv2.imread(Image_file, cv2.IMREAD_COLOR)
+                    image = cv2.blur(image, (5, 5))
+                    image = draw_3dboxes(image, gt_corners, (255, 0, 0))
+                    image = draw_3dboxes(image, bboxes, (0, 0, 255))
+                    cv2.imwrite("/media/xivt/proposals_cls/proposals_min/" + "%06d.jpg" % self.ids[i], image)
                     if len(NMS_cls_frame) < 5:
                         for n in range(len(gt_list)):
                             if gt_list[n] != 10:
@@ -2232,7 +2479,7 @@ if __name__ == '__main__':
         mlab.orientation_axes()
         raw_input()"""
 
-    dataset = RadarDataset_bbox_CLS('pc_radar_2', "KITTI", npoints=3500, split='train',
+    dataset = RadarDataset_bbox_CLS('pc_radar_2', "KITTI", npoints=3500, split='val',
                                     rotate_to_center=False, one_hot=True, all_batches=False,
                                     translate_radar_center=False,
                                     store_data=True, proposals_3=False, no_color=True)
