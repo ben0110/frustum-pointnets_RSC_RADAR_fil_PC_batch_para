@@ -1783,8 +1783,6 @@ class RadarDataset_bbox(object):
         len_PC = []
         for i in range(len(self.segp_list)):
             len_PC.append(len(self.segp_list[i]))
-        print(len_PC)
-        print(self.ids)
         # print(self.segp_list)
         # print(self.segp_list)
         # self.segp_list=self.segp_list[4:5]

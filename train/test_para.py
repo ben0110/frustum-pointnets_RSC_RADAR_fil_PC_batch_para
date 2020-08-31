@@ -450,7 +450,7 @@ def test(output_filename, result_dir=None):
         print("time_seg",end_t_seg-start_t_seg)
         #AB_pc,AB_corners = extract_AB(batch_data,preds_val,batch_radar_mask_list,radar_rois_param)
         #BBOX_DATASET=provider.RADAR_dataset_seg_to_bbox(AB_pc,AB_corners,batch_idx,TEST_DATASET)
-        BBOX_DATASET = provider.RadarDataset_bbox(batch_idx,'pc_radar_2', 'KITTI', npoints=NUM_POINT, split='val',
+        BBOX_DATASET = provider.RadarDataset_bbox(TEST_DATASET.idx_batch[batch_idx],'pc_radar_2', 'KITTI', npoints=NUM_POINT, split='val',
                                                   rotate_to_center=False, one_hot=True, all_batches=True,
                                                   translate_radar_center=False, store_data=True, proposals_3=True,
                                                   no_color=True)
